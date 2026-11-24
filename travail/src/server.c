@@ -7,6 +7,8 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <poll.h>
+#include <ctype.h>
 
 #include "common.h"
 
@@ -95,6 +97,8 @@ int handle_bind(char *address, char *port)
 		{
 			continue;
 		}
+		setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)); // permet de réutiliser le port si le serveur est relancé rapidement
+
 		if (bind(sfd, rp->ai_addr, rp->ai_addrlen) == 0)
 		{
 			break;
@@ -109,8 +113,31 @@ int handle_bind(char *address, char *port)
 	return sfd;
 }
 
-void handle_poll(struct pollfd *fds, int server_fd, struct sockaddr client_address,
-				 socklen_t client_address_len)
+int handle_command(char *msg, int l)
+{
+
+	int i = 1;
+	while ((i < l) && (!isspace(msg[i])) && (msg[i] != '\0'))
+	{
+
+		i++;
+	}
+
+	char command[i + 1];
+	memcpy(command, msg, i);
+	command[i] = '\0';
+
+	printf("command is : %s\n", command);
+
+	if (strcmp("/quit", command) == 0)
+	{
+		printf("quitting\n");
+		exit(EXIT_SUCCESS);
+	}
+	return 1;
+}
+
+void handle_poll(struct pollfd *fds, int sfd, struct sockaddr cli, socklen_t len)
 {
 	while (1)
 	{
@@ -127,7 +154,32 @@ void handle_poll(struct pollfd *fds, int server_fd, struct sockaddr client_addre
 			}
 			else if (fds[i].fd != server_fd && (fds[i].revents & POLLIN))
 			{
-				if (!handle_client_input(&fds[i]))
+				// read data
+
+				char buff[MSG_LEN];
+
+				// Cleaning memory
+				memset(buff, 0, MSG_LEN);
+				// Receiving message
+				if (recv(fds[i].fd, buff, MSG_LEN, 0) <= 0)
+				{
+					printf("closed \n");
+					close(fds[i].fd);
+					fds[i].fd = -1;
+					fds[i].events = 0;
+				}
+				else
+				{
+					// check if this is a command
+					if (buff[0] == '/')
+					{
+						handle_command(buff, sizeof(buff));
+					}
+				}
+				printf("Received: %s", buff);
+				// Sending message (ECHO)
+
+				if (send(fds[i].fd, buff, strlen(buff), 0) <= 0)
 				{
 					break;
 				}
@@ -145,6 +197,8 @@ int main(int argc, char *argv[])
 	char *address = SERV_ADDR;
 	char *port = SERV_PORT;
 	struct sockaddr client_address;
+	struct sockaddr cli;
+	memset(&cli, 0, sizeof(struct sockaddr)); // fix because compiler throwed a warning because cli was not initialized
 	int sfd;
 
 	if (argc != 3)
