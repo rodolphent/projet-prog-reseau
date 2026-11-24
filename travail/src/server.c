@@ -145,32 +145,9 @@ int handle_bind(char *address, char *port)
 	return sfd;
 }
 
-int handle_command(char *msg, int l)
-{
 
-	int i = 1;
-	while ((i < l) && (!isspace(msg[i])) && (msg[i] != '\0'))
-	{
-
-		i++;
-	}
-
-	char command[i + 1];
-	memcpy(command, msg, i);
-	command[i] = '\0';
-
-	printf("command is : %s\n", command);
-
-	if (strcmp("/quit", command) == 0)
-	{
-		printf("quitting\n");
-		exit(EXIT_SUCCESS);
-	}
-	return 1;
-}
-
-void handle_poll(struct pollfd *fds, int sfd, struct sockaddr cli, socklen_t len)
-{
+void handle_poll(struct pollfd *fds, int server_fd, struct sockaddr client_address,
+				 socklen_t client_address_len){
 	while (1)
 	{
 		printf("will poll\n");
@@ -201,7 +178,6 @@ void handle_poll(struct pollfd *fds, int sfd, struct sockaddr cli, socklen_t len
 
 int main(int argc, char *argv[])
 {
-<<<<<<<<< Temporary merge branch 1
 	char *address = SERV_ADDR;
 	char *port = SERV_PORT;
 	struct sockaddr client_address;
