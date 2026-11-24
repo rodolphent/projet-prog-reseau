@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <poll.h>
+#include <ctype.h>
 
 #include "common.h"
 
@@ -20,6 +21,7 @@ int handle_bind()
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE;
+
 	if (getaddrinfo(NULL, SERV_PORT, &hints, &result) != 0)
 	{
 		perror("getaddrinfo()");
@@ -33,6 +35,8 @@ int handle_bind()
 		{
 			continue;
 		}
+		setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)); // permet de réutiliser le port si le serveur est relancé rapidement
+
 		if (bind(sfd, rp->ai_addr, rp->ai_addrlen) == 0)
 		{
 			break;
@@ -48,7 +52,31 @@ int handle_bind()
 	return sfd;
 }
 
-void handle_poll(struct pollfd* fds, int sfd,struct sockaddr cli,socklen_t len)
+int handle_command(char *msg, int l)
+{
+
+	int i = 1;
+	while ((i < l) && (!isspace(msg[i])) && (msg[i] != '\0'))
+	{
+
+		i++;
+	}
+
+	char command[i + 1];
+	memcpy(command, msg, i);
+	command[i] = '\0';
+
+	printf("command is : %s\n", command);
+
+	if (strcmp("/quit", command) == 0)
+	{
+		printf("quitting\n");
+		exit(EXIT_SUCCESS);
+	}
+	return 1;
+}
+
+void handle_poll(struct pollfd *fds, int sfd, struct sockaddr cli, socklen_t len)
 {
 	while (1)
 	{
@@ -96,8 +124,17 @@ void handle_poll(struct pollfd* fds, int sfd,struct sockaddr cli,socklen_t len)
 					fds[i].fd = -1;
 					fds[i].events = 0;
 				}
+				else
+				{
+					// check if this is a command
+					if (buff[0] == '/')
+					{
+						handle_command(buff, sizeof(buff));
+					}
+				}
 				printf("Received: %s", buff);
 				// Sending message (ECHO)
+
 				if (send(fds[i].fd, buff, strlen(buff), 0) <= 0)
 				{
 					break;
@@ -121,8 +158,8 @@ void handle_poll(struct pollfd* fds, int sfd,struct sockaddr cli,socklen_t len)
 
 int main()
 {
-	struct sockaddr cli ;
-	memset(&cli, 0, sizeof(struct sockaddr));// fix because compiler throwed a warning because cli was not initialized
+	struct sockaddr cli;
+	memset(&cli, 0, sizeof(struct sockaddr)); // fix because compiler throwed a warning because cli was not initialized
 	int sfd;
 	socklen_t len;
 	sfd = handle_bind();
@@ -146,7 +183,7 @@ int main()
 	fds[0].events = POLLIN;
 	fds[0].revents = 0;
 
-	handle_poll(fds,sfd,cli,len);
+	handle_poll(fds, sfd, cli, len);
 
 	close(sfd);
 	return EXIT_SUCCESS;
