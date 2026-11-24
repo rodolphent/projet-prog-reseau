@@ -1,4 +1,5 @@
 #include <arpa/inet.h>
+#include <ctype.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <poll.h>
@@ -37,10 +38,81 @@ int handle_server_input(int sockfd, char *buffer)
 	return 1;
 }
 
+int get_msg_type_and_infos(char *buffer,
+						   char **msg_infos, char **msg_content)
+{
+	int msg_type_res = -1;
+	int have_info = 0;
+
+	while (isspace((unsigned char)*buffer))
+	{
+		buffer++;
+	}
+	char *msg_type = buffer;
+	if (strcmp(msg_type, "/nick") == 0)
+	{
+		msg_type_res = NICKNAME_NEW;
+		have_info = 1;
+	}
+	else if (strcmp(msg_type, "/list") == 0)
+	{
+		msg_type_res = NICKNAME_LIST;
+	}
+	else if (strcmp(msg_type, "/info") == 0)
+	{
+		msg_type_res = NICKNAME_INFOS;
+		have_info = 1;
+	}
+	else if (strcmp(msg_type, "/echo") == 0)
+	{
+		msg_type_res = ECHO_SEND;
+	}
+	else if (strcmp(msg_type, "/unicast") == 0)
+	{
+		msg_type_res = UNICAST_SEND;
+		have_info = 1;
+	}
+	else if (strcmp(msg_type, "/broadcast") == 0)
+	{
+		msg_type_res = BROADCAST_SEND;
+	}
+	else {
+		msg_type = "UNKNOWN";
+		return -1;
+	}
+	if (have_info)
+	{
+		while (*buffer != '\0' && !isspace((unsigned char)*buffer))
+		{
+			buffer++;
+		}
+		while (isspace((unsigned char)*buffer))
+		{
+			buffer++;
+		}
+		memmove(*msg_infos, buffer, strlen(buffer) + 1);
+	}
+
+	while (*buffer != '\0' && !isspace((unsigned char)*buffer))
+	{
+		buffer++;
+	}
+	if (*buffer != '\0')
+	{
+		*buffer++ = '\0';
+	}
+	*msg_content = buffer;
+	buffer += strcspn(buffer, "\r\n");
+	*buffer = '\0';
+	return msg_type_res;
+}
+
 int handle_stdin_input(int sockfd, char* nickname, char *buffer)
 {
 	int n = read(STDIN_FILENO, buffer, MSG_LEN - 1);
-	char *msg_type, *msg_infos;
+	char *msg_infos;
+	char *msg_content;
+	int msg_type;
 	if (n < 0)
 	{
 		perror("read stdin");
@@ -52,18 +124,36 @@ int handle_stdin_input(int sockfd, char* nickname, char *buffer)
 		return 0;
 	}
 
-	msg_type, msg_infos = get_msg_type_and_infos(buffer);
+	char parsed_buffer[MSG_LEN];
+	memcpy(parsed_buffer, buffer, (size_t)n);
+	parsed_buffer[n] = '\0';
+
+	msg_type = get_msg_type_and_infos(parsed_buffer, &msg_infos);
+	if (msg_type < 0)
+	{
+		fprintf(stderr, "Unknown command\n");
+		return 1;
+	}
+
 	struct message payload;
 	payload.pld_len = n;
-	payload.type = msg_type;
-	memcpy(payload.nick_sender, nickname, NICK_LEN);
+	snprintf(payload.nick_sender, sizeof(payload.nick_sender), "%s", nickname);
+	payload.pld_len = n;
 	payload.type = ECHO_SEND;
-	memcpy(payload.infos, msg_infos, INFOS_LEN);
-
-	if (send(sockfd, buffer, n, 0) <= 0)
+	size_t infos_len = strlen(msg_infos);
+	if (infos_len >= sizeof(payload.infos))
 	{
-		return 0;
+		fprintf(stderr, "Message information is too long\n");
+		return 1;
 	}
+	memcpy(payload.infos, msg_infos, infos_len + 1);
+
+
+	//Send the struct message first 
+	die(send(sockfd, &payload, sizeof(payload), 0), "send message struct");
+
+	//Send the message content
+	die(send(sockfd, msg_content, strlen(msg_content), 0), "send message content");
 
 	printf("Message sent!\n");
 	return 1;
@@ -99,14 +189,6 @@ void echo_client(int sockfd, char* nickname)
 			}
 		}
 	}
-}
-
-char *get_msg_type_and_infos(char *buffer)
-{
-	char *whitespace = " \t\n";
-	char *msg_type = strtok(buffer, whitespace);
-	char *msg_infos = strtok(NULL, "\n");
-	return msg_type, msg_infos;
 }
 
 int handle_connect(char *address, char *port)
