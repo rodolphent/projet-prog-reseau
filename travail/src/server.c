@@ -145,10 +145,31 @@ int handle_bind(char *address, char *port)
 	return sfd;
 }
 
+int handle_command(char *msg, int l)
+{
 
+	int i = 1;
+	while ((i < l) && (!isspace(msg[i])) && (msg[i] != '\0'))
+	{
 
-void handle_poll(struct pollfd *fds, int server_fd, struct sockaddr client_address,
-				 socklen_t client_address_len)
+		i++;
+	}
+
+	char command[i + 1];
+	memcpy(command, msg, i);
+	command[i] = '\0';
+
+	printf("command is : %s\n", command);
+
+	if (strcmp("/quit", command) == 0)
+	{
+		printf("quitting\n");
+		exit(EXIT_SUCCESS);
+	}
+	return 1;
+}
+
+void handle_poll(struct pollfd *fds, int sfd, struct sockaddr cli, socklen_t len)
 {
 	while (1)
 	{
@@ -180,11 +201,12 @@ void handle_poll(struct pollfd *fds, int server_fd, struct sockaddr client_addre
 
 int main(int argc, char *argv[])
 {
-	struct sockaddr cli;
-	memset(&cli, 0, sizeof(struct sockaddr)); // fix because compiler throwed a warning because cli was not initialized
+<<<<<<<<< Temporary merge branch 1
 	char *address = SERV_ADDR;
 	char *port = SERV_PORT;
 	struct sockaddr client_address;
+	struct sockaddr cli;
+	memset(&cli, 0, sizeof(struct sockaddr)); // fix because compiler throwed a warning because cli was not initialized
 	int sfd;
 
 	if (argc != 3)
