@@ -7,8 +7,16 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
-
 #include "common.h"
+
+static void die(int ret_value, const char *msg)
+{
+	if (ret_value < 0)
+	{
+		perror(msg);
+		exit(EXIT_FAILURE);
+	}
+}
 
 static int handle_server_input(int sockfd, char *buffer)
 {
@@ -50,15 +58,6 @@ static int handle_stdin_input(int sockfd, char *buffer)
 	return 1;
 }
 
-void die(int ret_value, const char *msg)
-{
-	if (ret_value != 0)
-	{
-		perror(msg);
-		exit(EXIT_FAILURE);
-	}
-}
-
 void echo_client(int sockfd)
 {
 	char buffer[MSG_LEN];
@@ -70,7 +69,7 @@ void echo_client(int sockfd)
 
 	while (1)
 	{
-		die(poll(fds, 2, -1) < 0, "poll");
+		die(poll(fds, 2, -1), "poll");
 		memset(buffer, 0, sizeof(buffer));
 
 		if (fds[0].revents & (POLLIN | POLLHUP | POLLERR))
@@ -99,7 +98,13 @@ int handle_connect(char *address, char *port)
 	memset(&hints, 0, sizeof(struct addrinfo));
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
-	die(getaddrinfo(address, port, &hints, &result), "getaddrinfo");
+
+	int status = getaddrinfo(address, port, &hints, &result);
+	if (status != 0)
+	{
+		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
+		exit(EXIT_FAILURE);
+	}
 
 	for (rp = result; rp != NULL; rp = rp->ai_next)
 	{
@@ -115,7 +120,10 @@ int handle_connect(char *address, char *port)
 		close(sfd);
 	}
 
-	die(rp == NULL, "connect");
+	if (rp == NULL)
+	{
+		die(-1, "Could not connect to server\n");
+	}
 	printf("Client connected !\n");
 	freeaddrinfo(result);
 	return sfd;

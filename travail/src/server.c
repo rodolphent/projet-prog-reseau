@@ -10,6 +10,15 @@
 
 #include "common.h"
 
+static void die(int ret_value, const char *msg)
+{
+	if (ret_value < 0)
+	{
+		perror(msg);
+		exit(EXIT_FAILURE);
+	}
+}
+
 #define MAX_CONN 5
 
 static void accept_client(struct pollfd *fds, int server_fd,
@@ -23,7 +32,7 @@ static void accept_client(struct pollfd *fds, int server_fd,
 			if ((fds[i].fd = accept(server_fd, client_address,
 									client_address_len)) < 0)
 			{
-				perror("accept()\n");
+				die(-1, "accept()\n");
 				exit(EXIT_FAILURE);
 			}
 			printf("New socket on fd(%d)\n", fds[i].fd);
@@ -94,8 +103,7 @@ int handle_bind(char *address, char *port)
 	}
 	if (rp == NULL)
 	{
-		fprintf(stderr, "Could not bind\n");
-		exit(EXIT_FAILURE);
+		die(-1, "Could not bind\n");
 	}
 	freeaddrinfo(result);
 	return sfd;
