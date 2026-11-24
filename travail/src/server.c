@@ -1,26 +1,79 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <poll.h>
 
 #include "common.h"
 
 #define MAX_CONN 5
 
-int handle_bind()
+static void accept_client(struct pollfd *fds, int server_fd,
+						  struct sockaddr *client_address,
+						  socklen_t *client_address_len)
+{
+	for (int i = 1; i < MAX_CONN; i++)
+	{
+		if (fds[i].fd == -1)
+		{
+			if ((fds[i].fd = accept(server_fd, client_address,
+									client_address_len)) < 0)
+			{
+				perror("accept()\n");
+				exit(EXIT_FAILURE);
+			}
+			printf("New socket on fd(%d)\n", fds[i].fd);
+			fds[i].events = POLLIN;
+			fds[i].revents = 0;
+			break;
+		}
+	}
+}
+
+static int handle_client_input(struct pollfd *client)
+{
+	char buffer[MSG_LEN];
+
+	memset(buffer, 0, sizeof(buffer));
+	if (recv(client->fd, buffer, MSG_LEN, 0) <= 0)
+	{
+		printf("closed \n");
+		close(client->fd);
+		client->fd = -1;
+		client->events = 0;
+	}
+	printf("Received: %s", buffer);
+	if (send(client->fd, buffer, strlen(buffer), 0) <= 0)
+	{
+		return 0;
+	}
+	printf("Message sent!\n");
+	client->revents = 0;
+	return 1;
+}
+
+static void close_client(struct pollfd *client)
+{
+	close(client->fd);
+	client->fd = -1;
+	client->events = 0;
+	client->revents = 0;
+}
+
+int handle_bind(char *address, char *port)
 {
 	struct addrinfo hints, *result, *rp;
 	int sfd;
+
 	memset(&hints, 0, sizeof(struct addrinfo));
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE;
-	if (getaddrinfo(NULL, SERV_PORT, &hints, &result) != 0)
+	if (getaddrinfo(address, port, &hints, &result) != 0)
 	{
 		perror("getaddrinfo()");
 		exit(EXIT_FAILURE);
@@ -48,93 +101,66 @@ int handle_bind()
 	return sfd;
 }
 
-void handle_poll(struct pollfd* fds, int sfd,struct sockaddr cli,socklen_t len)
+void handle_poll(struct pollfd *fds, int server_fd, struct sockaddr client_address,
+				 socklen_t client_address_len)
 {
 	while (1)
 	{
 		printf("will poll\n");
 		int nfds = poll(fds, MAX_CONN, -1);
 		printf("%d fd active\n", nfds);
+
 		for (int i = 0; i < MAX_CONN; i++)
 		{
-
-			// IF listening socket gets a new request
-			if (fds[i].fd == sfd && (fds[i].revents & POLLIN))
+			if (fds[i].fd == server_fd && (fds[i].revents & POLLIN))
 			{
-				for (int i = 1; i < MAX_CONN; i++)
-				{
-					// if fd is available
-					if (fds[i].fd == -1)
-					{
-						// handle accept
-						if ((fds[i].fd = accept(sfd, (struct sockaddr *)&cli, &len)) < 0)
-						{
-							perror("accept()\n");
-							exit(EXIT_FAILURE);
-						}
-						printf("New socket on fd(%d)\n", fds[i].fd); // listen 3, new 4
-						fds[i].events = POLLIN;
-						fds[i].revents = 0;
-						break;
-					}
-				}
+				accept_client(fds, server_fd, &client_address,
+							  &client_address_len);
 			}
-			// if some other socket has an update
-			else if (fds[i].fd != sfd && (fds[i].revents & POLLIN))
+			else if (fds[i].fd != server_fd && (fds[i].revents & POLLIN))
 			{
-				// read data
-
-				char buff[MSG_LEN];
-
-				// Cleaning memory
-				memset(buff, 0, MSG_LEN);
-				// Receiving message
-				if (recv(fds[i].fd, buff, MSG_LEN, 0) <= 0)
-				{
-					printf("closed \n");
-					close(fds[i].fd);
-					fds[i].fd = -1;
-					fds[i].events = 0;
-				}
-				printf("Received: %s", buff);
-				// Sending message (ECHO)
-				if (send(fds[i].fd, buff, strlen(buff), 0) <= 0)
+				if (!handle_client_input(&fds[i]))
 				{
 					break;
 				}
-				printf("Message sent!\n");
-				fds[i].revents = 0;
 			}
-			// if some other socket closed
-			else if (fds[i].fd != sfd && (fds[i].revents & POLLHUP))
+			else if (fds[i].fd != server_fd && (fds[i].revents & POLLHUP))
 			{
-				// close
-				close(fds[i].fd);
-
-				fds[i].fd = -1;
-				fds[i].events = 0;
-				fds[i].revents = 0;
+				close_client(&fds[i]);
 			}
 		}
 	}
 }
 
-int main()
+int main(int argc, char *argv[])
 {
-	struct sockaddr cli ;
-	memset(&cli, 0, sizeof(struct sockaddr));// fix because compiler throwed a warning because cli was not initialized
+	char *address = SERV_ADDR;
+	char *port = SERV_PORT;
+	struct sockaddr client_address;
 	int sfd;
+
+	if (argc != 3)
+	{
+		printf("Default address and port will be used : %s:%s\n", address, port);
+	}
+	else
+	{
+		address = argv[1];
+		port = argv[2];
+	}
+
+	memset(&client_address, 0, sizeof(struct sockaddr));
+
 	socklen_t len;
-	sfd = handle_bind();
+	sfd = handle_bind(address, port);
 	if ((listen(sfd, SOMAXCONN)) != 0)
 	{
 		perror("listen()\n");
 		exit(EXIT_FAILURE);
 	}
-	len = sizeof(cli);
+	len = sizeof(client_address);
 
-	// polling logic
-	struct pollfd fds[MAX_CONN] = {0}; // TODO : replace by linked list
+	struct pollfd fds[MAX_CONN] = {0};
 
 	for (int i = 1; i < MAX_CONN; i++)
 	{
@@ -146,7 +172,7 @@ int main()
 	fds[0].events = POLLIN;
 	fds[0].revents = 0;
 
-	handle_poll(fds,sfd,cli,len);
+	handle_poll(fds, sfd, client_address, len);
 
 	close(sfd);
 	return EXIT_SUCCESS;
