@@ -49,6 +49,13 @@ static int handle_stdin_input(int sockfd, char *buffer)
 		printf("stdin closed\n");
 		return 0;
 	}
+
+	struct message payload;
+	payload.pld_len = n;
+	memcpy(payload.nick_sender, "client", NICK_LEN);
+	payload.type = ECHO_SEND;
+	memcpy(payload.infos, buffer, INFOS_LEN);
+	
 	if (send(sockfd, buffer, n, 0) <= 0)
 	{
 		return 0;
