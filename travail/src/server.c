@@ -12,6 +12,14 @@
 
 #include "common.h"
 
+struct Client
+{
+	int fd;
+	struct sockaddr address;
+	socklen_t address_len;
+	struct Client *next;
+};
+
 static void die(int ret_value, const char *msg)
 {
 	if (ret_value < 0)
@@ -21,28 +29,67 @@ static void die(int ret_value, const char *msg)
 	}
 }
 
-#define MAX_CONN 5
 
-static void accept_client(struct pollfd *fds, int server_fd,
-						  struct sockaddr *client_address,
-						  socklen_t *client_address_len)
+static void client_add(struct Client **head, int fd, struct sockaddr *addr,
+					   socklen_t len)
 {
-	for (int i = 1; i < MAX_CONN; i++)
+	struct Client *c = malloc(sizeof(struct Client));
+	if (!c)
 	{
-		if (fds[i].fd == -1)
-		{
-			if ((fds[i].fd = accept(server_fd, client_address,
-									client_address_len)) < 0)
-			{
-				die(-1, "accept()\n");
-				exit(EXIT_FAILURE);
-			}
-			printf("New socket on fd(%d)\n", fds[i].fd);
-			fds[i].events = POLLIN;
-			fds[i].revents = 0;
-			break;
-		}
+		perror("malloc()");
+		exit(EXIT_FAILURE);
 	}
+	c->fd = fd;
+	c->address = *addr;
+	c->address_len = len;
+	c->next = *head; 
+	*head = c;
+}
+
+static void client_remove(struct Client **head, int fd)
+{
+	struct Client **cur = head;
+	while (*cur && (*cur)->fd != fd)
+	{
+		cur = &(*cur)->next;
+	}
+	if (*cur)
+	{
+		struct Client *to_free = *cur;
+		*cur = to_free->next; 
+		close(to_free->fd);
+		free(to_free);
+		printf("Client on fd(%d) removed\n", fd);
+	}
+}
+
+static void client_free_all(struct Client **head)
+{
+	while (*head)
+	{
+		client_remove(head, (*head)->fd);
+	}
+}
+
+static int client_count(struct Client *head)
+{
+	int n = 0;
+	for (struct Client *c = head; c != NULL; c = c->next)
+	{
+		n++;
+	}
+	return n;
+}
+
+
+static void accept_client(int server_fd, struct Client **clients)
+{
+	struct sockaddr addr;
+	socklen_t len = sizeof(addr);
+	int fd = accept(server_fd, &addr, &len);
+	die(fd, "accept()");
+	printf("New socket on fd(%d)\n", fd);
+	client_add(clients, fd, &addr, len);
 }
 
 int handle_command(char *msg, int l)
@@ -64,47 +111,39 @@ int handle_command(char *msg, int l)
 	if (strcmp("/quit", command) == 0)
 	{
 		printf("quitting\n");
-		exit(EXIT_SUCCESS);
+		return 0;
 	}
 	return 1;
 }
 
-static int handle_client_input(struct pollfd *client)
+static void handle_client_input(int fd, struct Client **clients)
 {
 	char buffer[MSG_LEN];
 
 	memset(buffer, 0, sizeof(buffer));
-	if (recv(client->fd, buffer, MSG_LEN, 0) <= 0)
+	if (recv(fd, buffer, MSG_LEN - 1, 0) <= 0)
 	{
 		printf("closed \n");
-		close(client->fd);
-		client->fd = -1;
-		client->events = 0;
+		client_remove(clients, fd);
+		return;
 	}
-	else
+	// check if this is a command
+	if (buffer[0] == '/')
 	{
-		// check if this is a command
-		if (buffer[0] == '/')
+		//check if command is /quit (= 0)
+		if (!handle_command(buffer, sizeof(buffer)))
 		{
-			handle_command(buffer, sizeof(buffer));
+			client_remove(clients, fd);
+			return;
 		}
 	}
 	printf("Received: %s", buffer);
-	if (send(client->fd, buffer, strlen(buffer), 0) <= 0)
+	if (send(fd, buffer, strlen(buffer), 0) <= 0)
 	{
-		return 0;
+		client_remove(clients, fd);
+		return;
 	}
 	printf("Message sent!\n");
-	client->revents = 0;
-	return 1;
-}
-
-static void close_client(struct pollfd *client)
-{
-	close(client->fd);
-	client->fd = -1;
-	client->events = 0;
-	client->revents = 0;
 }
 
 int handle_bind(char *address, char *port)
@@ -145,32 +184,41 @@ int handle_bind(char *address, char *port)
 	return sfd;
 }
 
-
-void handle_poll(struct pollfd *fds, int server_fd, struct sockaddr client_address,
-				 socklen_t client_address_len){
+void handle_poll(int server_fd, struct Client **clients)
+{
 	while (1)
 	{
+		int n = client_count(*clients) + 1;
+		struct pollfd fds[n];
+		fds[0].fd = server_fd;
+		fds[0].events = POLLIN;
+		fds[0].revents = 0;
+		int i = 1;
+		for (struct Client *c = *clients; c != NULL; c = c->next, i++)
+		{
+			fds[i].fd = c->fd;
+			fds[i].events = POLLIN;
+			fds[i].revents = 0;
+		}
+
 		printf("will poll\n");
-		int nfds = poll(fds, MAX_CONN, -1);
+		int nfds = poll(fds, n, -1);
+		die(nfds, "poll()");
 		printf("%d fd active\n", nfds);
 
-		for (int i = 0; i < MAX_CONN; i++)
+		if (fds[0].revents & POLLIN)
 		{
-			if (fds[i].fd == server_fd && (fds[i].revents & POLLIN))
+			accept_client(server_fd, clients);
+		}
+		for (i = 1; i < n; i++)
+		{
+			if (fds[i].revents & POLLIN)
 			{
-				accept_client(fds, server_fd, &client_address,
-							  &client_address_len);
+				handle_client_input(fds[i].fd, clients);
 			}
-			else if (fds[i].fd != server_fd && (fds[i].revents & POLLIN))
+			else if (fds[i].revents & POLLHUP)
 			{
-				if (!handle_client_input(&fds[i]))
-				{
-					break;
-				}
-			}
-			else if (fds[i].fd != server_fd && (fds[i].revents & POLLHUP))
-			{
-				close_client(&fds[i]);
+				client_remove(clients, fds[i].fd);
 			}
 		}
 	}
@@ -180,9 +228,6 @@ int main(int argc, char *argv[])
 {
 	char *address = SERV_ADDR;
 	char *port = SERV_PORT;
-	struct sockaddr client_address;
-	struct sockaddr cli;
-	memset(&cli, 0, sizeof(struct sockaddr)); // fix because compiler throwed a warning because cli was not initialized
 	int sfd;
 
 	if (argc != 3)
@@ -195,31 +240,18 @@ int main(int argc, char *argv[])
 		port = argv[2];
 	}
 
-	memset(&client_address, 0, sizeof(struct sockaddr));
-
-	socklen_t len;
 	sfd = handle_bind(address, port);
 	if ((listen(sfd, SOMAXCONN)) != 0)
 	{
 		perror("listen()\n");
 		exit(EXIT_FAILURE);
 	}
-	len = sizeof(client_address);
 
-	struct pollfd fds[MAX_CONN] = {0};
+	struct Client *clients = NULL; 
 
-	for (int i = 1; i < MAX_CONN; i++)
-	{
-		fds[i].fd = -1;
-		fds[i].events = 0;
-		fds[i].revents = 0;
-	}
-	fds[0].fd = sfd;
-	fds[0].events = POLLIN;
-	fds[0].revents = 0;
+	handle_poll(sfd, &clients);
 
-	handle_poll(fds, sfd, client_address, len);
-
+	client_free_all(&clients);
 	close(sfd);
 	return EXIT_SUCCESS;
 }
