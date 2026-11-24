@@ -41,14 +41,42 @@ int handle_server_input(int sockfd, char *buffer)
 int get_msg_type_and_infos(char *buffer,
 						   char **msg_infos, char **msg_content)
 {
-	int msg_type_res = -1;
-	int have_info = 0;
+	if (buffer == NULL || msg_infos == NULL || msg_content == NULL)
+	{
+		return -1;
+	}
 
 	while (isspace((unsigned char)*buffer))
 	{
 		buffer++;
 	}
+
+	char *line_end = buffer + strcspn(buffer, "\r\n");
+	*line_end = '\0';
+	*msg_infos = line_end;
+	*msg_content = line_end;
+	if (*buffer == '\0')
+	{
+		return -1;
+	}
+
 	char *msg_type = buffer;
+	while (*buffer != '\0' && !isspace((unsigned char)*buffer))
+	{
+		buffer++;
+	}
+	if (*buffer != '\0')
+	{
+		*buffer++ = '\0';
+	}
+	while (isspace((unsigned char)*buffer))
+	{
+		buffer++;
+	}
+	*msg_content = buffer;
+
+	int msg_type_res;
+	int have_info = 0;
 	if (strcmp(msg_type, "/nick") == 0)
 	{
 		msg_type_res = NICKNAME_NEW;
@@ -76,34 +104,29 @@ int get_msg_type_and_infos(char *buffer,
 	{
 		msg_type_res = BROADCAST_SEND;
 	}
-	else {
-		msg_type = "UNKNOWN";
+	else
+	{
 		return -1;
 	}
+
 	if (have_info)
 	{
+		*msg_infos = buffer;
 		while (*buffer != '\0' && !isspace((unsigned char)*buffer))
 		{
 			buffer++;
+		}
+		if (*buffer != '\0')
+		{
+			*buffer++ = '\0';
 		}
 		while (isspace((unsigned char)*buffer))
 		{
 			buffer++;
 		}
-		memmove(*msg_infos, buffer, strlen(buffer) + 1);
+		*msg_content = buffer;
 	}
 
-	while (*buffer != '\0' && !isspace((unsigned char)*buffer))
-	{
-		buffer++;
-	}
-	if (*buffer != '\0')
-	{
-		*buffer++ = '\0';
-	}
-	*msg_content = buffer;
-	buffer += strcspn(buffer, "\r\n");
-	*buffer = '\0';
 	return msg_type_res;
 }
 
@@ -128,7 +151,7 @@ int handle_stdin_input(int sockfd, char* nickname, char *buffer)
 	memcpy(parsed_buffer, buffer, (size_t)n);
 	parsed_buffer[n] = '\0';
 
-	msg_type = get_msg_type_and_infos(parsed_buffer, &msg_infos);
+	msg_type = get_msg_type_and_infos(parsed_buffer, &msg_infos, &msg_content);
 	if (msg_type < 0)
 	{
 		fprintf(stderr, "Unknown command\n");
