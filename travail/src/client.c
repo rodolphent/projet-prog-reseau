@@ -8,8 +8,9 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include "common.h"
+#include "msg_struct.h"
 
-static void die(int ret_value, const char *msg)
+void die(int ret_value, const char *msg)
 {
 	if (ret_value < 0)
 	{
@@ -18,7 +19,7 @@ static void die(int ret_value, const char *msg)
 	}
 }
 
-static int handle_server_input(int sockfd, char *buffer)
+int handle_server_input(int sockfd, char *buffer)
 {
 	int n = read(sockfd, buffer, MSG_LEN - 1);
 	if (n < 0)
@@ -36,9 +37,10 @@ static int handle_server_input(int sockfd, char *buffer)
 	return 1;
 }
 
-static int handle_stdin_input(int sockfd, char *buffer)
+int handle_stdin_input(int sockfd, char* nickname, char *buffer)
 {
 	int n = read(STDIN_FILENO, buffer, MSG_LEN - 1);
+	char *msg_type, *msg_infos;
 	if (n < 0)
 	{
 		perror("read stdin");
@@ -50,12 +52,14 @@ static int handle_stdin_input(int sockfd, char *buffer)
 		return 0;
 	}
 
+	msg_type, msg_infos = get_msg_type_and_infos(buffer);
 	struct message payload;
 	payload.pld_len = n;
-	memcpy(payload.nick_sender, "client", NICK_LEN);
+	payload.type = msg_type;
+	memcpy(payload.nick_sender, nickname, NICK_LEN);
 	payload.type = ECHO_SEND;
-	memcpy(payload.infos, buffer, INFOS_LEN);
-	
+	memcpy(payload.infos, msg_infos, INFOS_LEN);
+
 	if (send(sockfd, buffer, n, 0) <= 0)
 	{
 		return 0;
@@ -65,7 +69,7 @@ static int handle_stdin_input(int sockfd, char *buffer)
 	return 1;
 }
 
-void echo_client(int sockfd)
+void echo_client(int sockfd, char* nickname)
 {
 	char buffer[MSG_LEN];
 	struct pollfd fds[2];
@@ -89,12 +93,20 @@ void echo_client(int sockfd)
 
 		if (fds[1].revents & (POLLIN | POLLHUP | POLLERR))
 		{
-			if (!handle_stdin_input(sockfd, buffer))
+			if (!handle_stdin_input(sockfd, nickname, buffer))
 			{
 				break;
 			}
 		}
 	}
+}
+
+char *get_msg_type_and_infos(char *buffer)
+{
+	char *whitespace = " \t\n";
+	char *msg_type = strtok(buffer, whitespace);
+	char *msg_infos = strtok(NULL, "\n");
+	return msg_type, msg_infos;
 }
 
 int handle_connect(char *address, char *port)
@@ -139,18 +151,22 @@ int handle_connect(char *address, char *port)
 int main(int argc, char *argv[])
 {
 	int sfd;
+	char *nickname = "";
 
-	if (argc != 3)
+	if (argc < 3)
 	{
 		printf("Default address and port will be used : %s:%s\n", SERV_ADDR, SERV_PORT);
 		sfd = handle_connect(SERV_ADDR, SERV_PORT);
+	}
+	else if (argc < 4){
+		nickname = argv[3];
 	}
 	else
 	{
 		sfd = handle_connect(argv[1], argv[2]);
 	}
 
-	echo_client(sfd);
+	echo_client(sfd, nickname);
 	close(sfd);
 	return EXIT_SUCCESS;
 }
