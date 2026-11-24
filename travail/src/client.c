@@ -41,6 +41,7 @@ int handle_server_input(int sockfd, char *buffer)
 int get_msg_type_and_infos(char *buffer,
 						   char **msg_infos, char **msg_content)
 {
+	int i = 0;
 	if (buffer == NULL || msg_infos == NULL || msg_content == NULL)
 	{
 		return -1;
@@ -112,13 +113,19 @@ int get_msg_type_and_infos(char *buffer,
 	if (have_info)
 	{
 		*msg_infos = buffer;
-		while (*buffer != '\0' && !isspace((unsigned char)*buffer))
+		while (*buffer != '\0' && !isspace((unsigned char)*buffer) && i < INFOS_LEN - 1)
 		{
+			i++;
 			buffer++;
 		}
 		if (*buffer != '\0')
 		{
 			*buffer++ = '\0';
+		}
+		if (i >= INFOS_LEN - 1)
+		{
+			fprintf(stderr, "Message information is too long\n");
+			return -1;
 		}
 		while (isspace((unsigned char)*buffer))
 		{
