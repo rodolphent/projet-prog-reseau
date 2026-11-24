@@ -7,6 +7,8 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <poll.h>
+#include <ctype.h>
 
 #include "common.h"
 
@@ -43,6 +45,30 @@ static void accept_client(struct pollfd *fds, int server_fd,
 	}
 }
 
+int handle_command(char *msg, int l)
+{
+
+	int i = 1;
+	while ((i < l) && (!isspace(msg[i])) && (msg[i] != '\0'))
+	{
+
+		i++;
+	}
+
+	char command[i + 1];
+	memcpy(command, msg, i);
+	command[i] = '\0';
+
+	printf("command is : %s\n", command);
+
+	if (strcmp("/quit", command) == 0)
+	{
+		printf("quitting\n");
+		exit(EXIT_SUCCESS);
+	}
+	return 1;
+}
+
 static int handle_client_input(struct pollfd *client)
 {
 	char buffer[MSG_LEN];
@@ -54,6 +80,14 @@ static int handle_client_input(struct pollfd *client)
 		close(client->fd);
 		client->fd = -1;
 		client->events = 0;
+	}
+	else
+	{
+		// check if this is a command
+		if (buffer[0] == '/')
+		{
+			handle_command(buffer, sizeof(buffer));
+		}
 	}
 	printf("Received: %s", buffer);
 	if (send(client->fd, buffer, strlen(buffer), 0) <= 0)
@@ -95,6 +129,8 @@ int handle_bind(char *address, char *port)
 		{
 			continue;
 		}
+		setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)); // permet de réutiliser le port si le serveur est relancé rapidement
+
 		if (bind(sfd, rp->ai_addr, rp->ai_addrlen) == 0)
 		{
 			break;
@@ -108,6 +144,8 @@ int handle_bind(char *address, char *port)
 	freeaddrinfo(result);
 	return sfd;
 }
+
+
 
 void handle_poll(struct pollfd *fds, int server_fd, struct sockaddr client_address,
 				 socklen_t client_address_len)
@@ -142,6 +180,8 @@ void handle_poll(struct pollfd *fds, int server_fd, struct sockaddr client_addre
 
 int main(int argc, char *argv[])
 {
+	struct sockaddr cli;
+	memset(&cli, 0, sizeof(struct sockaddr)); // fix because compiler throwed a warning because cli was not initialized
 	char *address = SERV_ADDR;
 	char *port = SERV_PORT;
 	struct sockaddr client_address;
