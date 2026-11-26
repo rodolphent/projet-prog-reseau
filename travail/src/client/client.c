@@ -59,7 +59,7 @@ int handle_server_input(int sockfd, char *nickname, char *buffer)
 		}
 		snprintf(nickname, NICK_LEN, "%s", response.infos);
 	}
-	printf("Received: %s", buffer);
+	printf("[Server] : %s", buffer);
 	return 1;
 }
 
