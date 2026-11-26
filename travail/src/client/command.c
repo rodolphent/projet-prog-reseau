@@ -82,6 +82,8 @@ int get_msg_type_and_infos(char *buffer,
 	{
 		msg_type_res = NICKNAME_INFOS;
 		have_info = 1;
+	}else if (strcmp(msg_type, "/msgall")==0){
+		msg_type_res = BROADCAST_SEND;
 	}
 	else
 	{

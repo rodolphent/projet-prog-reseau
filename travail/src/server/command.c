@@ -152,5 +152,19 @@ int handle_command(struct Client **clients,struct Client *client)
 		send(client->fd, &response, sizeof(response), 0);
 		send(client->fd, content, strlen(content), 0);
 	}
+
+	if(client->msgstruct.type == BROADCAST_SEND){
+		
+		for (struct Client *c = *clients; c != NULL; c = c->next)
+		{
+			if (c->fd != client->fd)
+			{
+				send(c->fd, &client->msgstruct, sizeof(client->msgstruct), 0);
+				send(c->fd, client->msg_content, strlen(client->msg_content), 0) ;
+			}
+		}
+		
+		printf("Message broadcasted : %s\n", client->msg_content);
+	}
 	return 1;
 }

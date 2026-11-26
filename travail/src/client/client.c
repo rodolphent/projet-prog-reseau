@@ -63,6 +63,13 @@ int handle_server_input(int sockfd, char *nickname, char *buffer)
 	if (response.type == NICKNAME_LIST)
 	{
 		//nothing to do, will already print
+		
+	}
+
+	if (response.type == BROADCAST_SEND)
+	{
+		printf("[%s] : %s\n", response.nick_sender, buffer);
+		return 1; // :/
 	}
 
 	printf("[Server] : %s", buffer);
