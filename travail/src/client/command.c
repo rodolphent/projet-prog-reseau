@@ -30,6 +30,12 @@ int get_msg_type_and_infos(char *buffer,
 		return -1;
 	}
 
+	if (*buffer != '/')
+	{
+		*msg_content = buffer;
+		return ECHO_SEND;
+	}
+
 	char *msg_type = buffer;
 	while (*buffer != '\0' && !isspace((unsigned char)*buffer))
 	{
@@ -60,10 +66,6 @@ int get_msg_type_and_infos(char *buffer,
 	{
 		msg_type_res = NICKNAME_INFOS;
 		have_info = 1;
-	}
-	else if (strcmp(msg_type, "/echo") == 0)
-	{
-		msg_type_res = ECHO_SEND;
 	}
 	else if (strcmp(msg_type, "/msg") == 0)
 	{

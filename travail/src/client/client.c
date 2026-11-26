@@ -78,6 +78,12 @@ int handle_server_input(int sockfd, char *nickname, char *buffer)
 		return 1; 
 	}
 
+	if (response.type == ECHO_SEND)
+	{
+		printf("[Server] : %s\n", buffer);
+		return 1;
+	}
+
 	printf("[Server] : %s", buffer);
 	return 1;
 }
