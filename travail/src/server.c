@@ -153,6 +153,7 @@ static void handle_client_input(int fd, struct Client **clients)
 	char buffer[MSG_LEN];
 	struct message msgstruct;
 
+	buffer[0] = '\0';
 	memset(buffer, 0, sizeof(buffer));
 	memset(&msgstruct, 0, sizeof(struct message));
 
@@ -164,36 +165,28 @@ static void handle_client_input(int fd, struct Client **clients)
 		return;
 	}
 
-	recv(fd, buffer, msgstruct.pld_len,0);
-	//buffer
-
-	//look for the right client in the linked list 
+	//look for the right client in the linked list q
 	struct Client *client = *clients;
 	while (client != NULL && client->fd != fd)
 	{
 		client = client->next;
 	}
-
 	if (client == NULL)
 	{
 		fprintf(stderr, "Client not found for fd(%d)\n", fd);
 		client_remove(clients, fd);
 		return;
 	}
-
-
 	if (client != NULL)
 	{
 		client->msgstruct = msgstruct;
 		client->msg_content = buffer;
 
 	}
-	
+	if (msgstruct.pld_len != 0) die(recv(fd, buffer, msgstruct.pld_len,0), "recv");
 
 	printf("Received data: %s\n", msgstruct.nick_sender);
 	printf("Received payload: %s\n", buffer);
-
-
 
 	handle_command(client);
 }

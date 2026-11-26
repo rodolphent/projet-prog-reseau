@@ -20,20 +20,51 @@ void die(int ret_value, const char *msg)
 	}
 }
 
-int handle_server_input(int sockfd, char *buffer)
+static int receive_all(int sockfd, void *buffer, size_t length)
 {
-	int n = read(sockfd, buffer, MSG_LEN - 1);
-	if (n < 0)
+	size_t received = 0;
+	while (received < length)
 	{
-		perror("read socket");
-		return 0;
+		ssize_t n = recv(sockfd, (char *)buffer + received, length - received, 0);
+		if (n < 0)
+		{
+			perror("receive from server");
+			return 0;
+		}
+		if (n == 0)
+		{
+			printf("Server closed the connection\n");
+			return 0;
+		}
+		received += (size_t)n;
 	}
-	if (n == 0)
+	return 1;
+}
+
+int handle_server_input(int sockfd, char *nickname, char *buffer)
+{
+	struct message response;
+	if (!receive_all(sockfd, &response, sizeof(response)))
 	{
-		printf("Server closed the connection\n");
 		return 0;
 	}
 
+	if (response.pld_len < 0 || response.pld_len >= MSG_LEN)
+	{
+		fprintf(stderr, "Invalid payload length received from server\n");
+		return 0;
+	}
+
+	if (!receive_all(sockfd, buffer, (size_t)response.pld_len))
+	{
+		return 0;
+	}
+	buffer[response.pld_len] = '\0';
+
+	if (response.type == NICKNAME_NEW)
+	{
+		snprintf(nickname, NICK_LEN, "%s", response.infos);
+	}
 	printf("Received: %s", buffer);
 	return 1;
 }
@@ -189,7 +220,7 @@ int handle_stdin_input(int sockfd, char* nickname, char *buffer)
 	return 1;
 }
 
-void echo_client(int sockfd, char* nickname)
+void echo_client(int sockfd, char *nickname)
 {
 	char buffer[MSG_LEN];
 	struct pollfd fds[2];
@@ -205,7 +236,7 @@ void echo_client(int sockfd, char* nickname)
 
 		if (fds[0].revents & (POLLIN | POLLHUP | POLLERR))
 		{
-			if (!handle_server_input(sockfd, buffer))
+			if (!handle_server_input(sockfd, nickname, buffer))
 			{
 				break;
 			}
@@ -263,15 +294,12 @@ int handle_connect(char *address, char *port)
 int main(int argc, char *argv[])
 {
 	int sfd;
-	char *nickname = "";
+	char nickname[NICK_LEN] = "";
 
 	if (argc < 3)
 	{
 		printf("Default address and port will be used : %s:%s\n", SERV_ADDR, SERV_PORT);
 		sfd = handle_connect(SERV_ADDR, SERV_PORT);
-	}
-	else if (argc < 4){
-		nickname = argv[3];
 	}
 	else
 	{
