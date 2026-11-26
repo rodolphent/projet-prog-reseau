@@ -86,6 +86,31 @@ int handle_command(struct Client **clients,struct Client *client)
 		
 	}
 
+	if (client->msgstruct.type == NICKNAME_LIST)
+	{
+		char content[MSG_LEN];
+		struct message response;
+		memset(&response,0,sizeof(response));
+
+		snprintf(content, sizeof(content), "Connected clients :\n");
+		for (struct Client *c = *clients; c != NULL; c = c->next)
+		{
+			if (strlen(c->nickname) > 0)
+			{
+				strncat(content, c->nickname, sizeof(content) - strlen(content) - 1);
+				strncat(content, "\n", sizeof(content) - strlen(content) - 1);
+			}
+		}
+
+		snprintf(response.nick_sender, sizeof(response.nick_sender), "%s", "Server");
+		response.type = NICKNAME_LIST;
+		response.pld_len = strlen(content);
+
+		send(client->fd, &response, sizeof(response), 0);
+		send(client->fd, content, strlen(content), 0);
+		
+	}
+
 	if (client->msgstruct.type == ECHO_SEND) {
 		//TODO : echo things
 

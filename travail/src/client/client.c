@@ -59,6 +59,12 @@ int handle_server_input(int sockfd, char *nickname, char *buffer)
 		}
 		snprintf(nickname, NICK_LEN, "%s", response.infos);
 	}
+
+	if (response.type == NICKNAME_LIST)
+	{
+		//nothing to do, will already print
+	}
+
 	printf("[Server] : %s", buffer);
 	return 1;
 }

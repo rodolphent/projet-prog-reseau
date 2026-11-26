@@ -74,6 +74,10 @@ int get_msg_type_and_infos(char *buffer,
 	{
 		msg_type_res = BROADCAST_SEND;
 	}
+	else if (strcmp(msg_type, "/who") == 0)
+	{
+		msg_type_res = NICKNAME_LIST;
+	}
 	else
 	{
 		return -1;
