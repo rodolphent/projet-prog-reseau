@@ -166,5 +166,35 @@ int handle_command(struct Client **clients,struct Client *client)
 		
 		printf("Message broadcasted : %s\n", client->msg_content);
 	}
+
+	if (client->msgstruct.type == UNICAST_SEND)
+	{
+		int found = 0;
+		for (struct Client *c = *clients; c != NULL; c = c->next)
+		{
+			if (c->nickname[0] != '\0' && strcmp(c->nickname, client->msgstruct.infos) == 0)
+			{
+				send(c->fd, &client->msgstruct, sizeof(client->msgstruct), 0);
+				send(c->fd, client->msg_content, strlen(client->msg_content), 0) ;
+				found = 1;
+				break;
+			}
+		}
+		if (!found)
+		{
+			char content[MSG_LEN];
+			struct message response;
+			memset(&response, 0, sizeof(response));
+
+			snprintf(content, sizeof(content), "User %s does not exist\n", client->msgstruct.infos);
+
+			snprintf(response.nick_sender, sizeof(response.nick_sender), "%s", "Server");
+			response.type = UNICAST_SEND;
+			response.pld_len = strlen(content);
+
+			send(client->fd, &response, sizeof(response), 0);
+			send(client->fd, content, strlen(content), 0);
+		}
+	}
 	return 1;
 }

@@ -65,7 +65,7 @@ int get_msg_type_and_infos(char *buffer,
 	{
 		msg_type_res = ECHO_SEND;
 	}
-	else if (strcmp(msg_type, "/unicast") == 0)
+	else if (strcmp(msg_type, "/msg") == 0)
 	{
 		msg_type_res = UNICAST_SEND;
 		have_info = 1;

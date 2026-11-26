@@ -72,6 +72,12 @@ int handle_server_input(int sockfd, char *nickname, char *buffer)
 		return 1; // :/
 	}
 
+	if ((response.type == UNICAST_SEND) && (strcmp(response.nick_sender, "Server") != 0))
+	{
+		printf("[%s] whispers to you : %s\n", response.nick_sender, buffer);
+		return 1; 
+	}
+
 	printf("[Server] : %s", buffer);
 	return 1;
 }
