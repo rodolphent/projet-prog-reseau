@@ -166,10 +166,10 @@ int handle_stdin_input(int sockfd, char* nickname, char *buffer)
 	}
 
 	struct message payload;
-	payload.pld_len = n;
+	payload.pld_len = strlen(msg_content);
 	snprintf(payload.nick_sender, sizeof(payload.nick_sender), "%s", nickname);
-	payload.pld_len = n;
-	payload.type = ECHO_SEND;
+	//payload.pld_len = n;
+	payload.type = msg_type;
 	size_t infos_len = strlen(msg_infos);
 	if (infos_len >= sizeof(payload.infos))
 	{

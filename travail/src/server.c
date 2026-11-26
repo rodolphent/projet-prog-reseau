@@ -31,15 +31,6 @@ struct Client
 	// once payload is not NULL and is treated, clean everything
 };
 
-int do_i_get_infos(int type){
-	if (type == (NICKNAME_INFOS || NICKNAME_NEW || UNICAST_SEND)){
-		return 1;
-	} else {
-		return 0;
-	}
-}
-
-
 static void die(int ret_value, const char *msg)
 {
 	if (ret_value < 0)
@@ -53,7 +44,7 @@ static void die(int ret_value, const char *msg)
 static void client_add(struct Client **head, int fd, struct sockaddr *addr,
 					   socklen_t len)
 {
-	struct Client *c = malloc(sizeof(struct Client));
+	struct Client *c = calloc(1,sizeof(*c));
 	if (!c)
 	{
 		perror("malloc()");
@@ -113,23 +104,46 @@ static void accept_client(int server_fd, struct Client **clients)
 	client_add(clients, fd, &addr, len);
 }
 
-int handle_command( struct Client client)
+int handle_command( struct Client* client)
 {
 
 	//TODO : handle quit 
-	if (client.msgstruct.type == 9999)
+	if (client->msgstruct.type == 9999)
 	{
 		printf("quitting\n");
 		return 0;
 	}
 
-	if (client.msgstruct.type == NICKNAME_NEW)
+	if (client->msgstruct.type == NICKNAME_NEW)
 	{
-		snprintf(client.msgstruct.infos, INFOS_LEN, "%s", client.nickname);
-
-		printf("nickname changed for fd(%d) to %s\n", client.fd, client.nickname);
-		//TODO : also check for non ascii characters
 		
+		//TODO : check if nick is valid before accepting it
+
+		printf("nickname changed for fd(%d) from %s to %s\n", client->fd, client->nickname,client->msgstruct.infos);
+		snprintf(client->nickname, NICK_LEN, "%s", client->msgstruct.infos);
+		//TODO : also check for non ascii characters
+		struct message response;
+		memset(&response,0,sizeof(response));
+		snprintf(response.nick_sender, sizeof(response.nick_sender), "%s", "Server");
+		response.type = NICKNAME_NEW;
+		char content[MSG_LEN];
+		snprintf(content, sizeof(content), "Welcome to the server %s !\n", client->nickname);
+		response.pld_len = strlen(content);
+		snprintf(response.infos, sizeof(response.infos), "%s", client->nickname);
+		
+		
+		send(client->fd, &response, sizeof(response), 0);
+		send(client->fd, content, strlen(content), 0);
+		
+	}
+
+	if (client->msgstruct.type == ECHO_SEND) {
+		//TODO : echo things
+
+		send(client->fd, &client->msgstruct, sizeof(client->msgstruct), 0);
+		send(client->fd, client->msg_content, strlen(client->msg_content), 0) ;
+		
+		printf("Message sent!\n");
 	}
 	return 1;
 }
@@ -151,7 +165,7 @@ static void handle_client_input(int fd, struct Client **clients)
 	}
 
 	recv(fd, buffer, msgstruct.pld_len,0);
-	
+	//buffer
 
 	//look for the right client in the linked list 
 	struct Client *client = *clients;
@@ -159,29 +173,29 @@ static void handle_client_input(int fd, struct Client **clients)
 	{
 		client = client->next;
 	}
+
+	if (client == NULL)
+	{
+		fprintf(stderr, "Client not found for fd(%d)\n", fd);
+		client_remove(clients, fd);
+		return;
+	}
+
+
 	if (client != NULL)
 	{
 		client->msgstruct = msgstruct;
 		client->msg_content = buffer;
 
 	}
-	if (client == NULL)
-	{
-		fprintf(stderr, "Client not found for fd(%d)\n", fd);
-	}
+	
 
 	printf("Received data: %s\n", msgstruct.nick_sender);
 	printf("Received payload: %s\n", buffer);
 
-	//TODO : echo things
-	if (send(fd, buffer, strlen(buffer), 0) <= 0)
-	{
-		client_remove(clients, fd);
-		return;
-	}
-	printf("Message sent!\n");
 
-	handle_command(*client);
+
+	handle_command(client);
 }
 
 int handle_bind(char *address, char *port)
