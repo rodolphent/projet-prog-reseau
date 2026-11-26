@@ -1,4 +1,5 @@
 #include <arpa/inet.h>
+
 #include <netdb.h>
 #include <netinet/in.h>
 #include <poll.h>
@@ -9,8 +10,9 @@
 #include <unistd.h>
 #include <poll.h>
 #include <ctype.h>
-
-#include "common.h"
+#include "../include/msg_struct.h"
+#include "../include/common.h"
+#include <limits.h>
 
 struct Client
 {
@@ -18,7 +20,25 @@ struct Client
 	struct sockaddr address;
 	socklen_t address_len;
 	struct Client *next;
+	char nickname[NICK_LEN];
+	struct message msgstruct;
+	char* msg_content; // do malloc when using
+	int is_waiting_message;
+	// add message struct
+	//add payload struct NULL
+	// when i receive a message, i cast it in message struct
+	// when i recevie a message, and message struct is not null i cast it in payload
+	// once payload is not NULL and is treated, clean everything
 };
+
+int do_i_get_infos(int type){
+	if (type == (NICKNAME_INFOS || NICKNAME_NEW || UNICAST_SEND)){
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
 
 static void die(int ret_value, const char *msg)
 {
@@ -43,6 +63,7 @@ static void client_add(struct Client **head, int fd, struct sockaddr *addr,
 	c->address = *addr;
 	c->address_len = len;
 	c->next = *head; 
+	c->is_waiting_message = 0;
 	*head = c;
 }
 
@@ -92,26 +113,23 @@ static void accept_client(int server_fd, struct Client **clients)
 	client_add(clients, fd, &addr, len);
 }
 
-int handle_command(char *msg, int l)
+int handle_command( struct Client client)
 {
 
-	int i = 1;
-	while ((i < l) && (!isspace(msg[i])) && (msg[i] != '\0'))
-	{
-
-		i++;
-	}
-
-	char command[i + 1];
-	memcpy(command, msg, i);
-	command[i] = '\0';
-
-	printf("command is : %s\n", command);
-
-	if (strcmp("/quit", command) == 0)
+	//TODO : handle quit 
+	if (client.msgstruct.type == 9999)
 	{
 		printf("quitting\n");
 		return 0;
+	}
+
+	if (client.msgstruct.type == NICKNAME_NEW)
+	{
+		snprintf(client.msgstruct.infos, INFOS_LEN, "%s", client.nickname);
+
+		printf("nickname changed for fd(%d) to %s\n", client.fd, client.nickname);
+		//TODO : also check for non ascii characters
+		
 	}
 	return 1;
 }
@@ -119,31 +137,51 @@ int handle_command(char *msg, int l)
 static void handle_client_input(int fd, struct Client **clients)
 {
 	char buffer[MSG_LEN];
+	struct message msgstruct;
 
 	memset(buffer, 0, sizeof(buffer));
-	if (recv(fd, buffer, MSG_LEN - 1, 0) <= 0)
+	memset(&msgstruct, 0, sizeof(struct message));
+
+	//getting metadata
+	if (recv(fd, &msgstruct, sizeof(struct message), 0) <= 0)
 	{
 		printf("closed \n");
 		client_remove(clients, fd);
 		return;
 	}
-	// check if this is a command
-	if (buffer[0] == '/')
+
+	recv(fd, buffer, msgstruct.pld_len,0);
+	
+
+	//look for the right client in the linked list 
+	struct Client *client = *clients;
+	while (client != NULL && client->fd != fd)
 	{
-		//check if command is /quit (= 0)
-		if (!handle_command(buffer, sizeof(buffer)))
-		{
-			client_remove(clients, fd);
-			return;
-		}
+		client = client->next;
 	}
-	printf("Received: %s", buffer);
+	if (client != NULL)
+	{
+		client->msgstruct = msgstruct;
+		client->msg_content = buffer;
+
+	}
+	if (client == NULL)
+	{
+		fprintf(stderr, "Client not found for fd(%d)\n", fd);
+	}
+
+	printf("Received data: %s\n", msgstruct.nick_sender);
+	printf("Received payload: %s\n", buffer);
+
+	//TODO : echo things
 	if (send(fd, buffer, strlen(buffer), 0) <= 0)
 	{
 		client_remove(clients, fd);
 		return;
 	}
 	printf("Message sent!\n");
+
+	handle_command(*client);
 }
 
 int handle_bind(char *address, char *port)
