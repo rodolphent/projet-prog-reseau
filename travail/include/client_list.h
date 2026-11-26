@@ -2,6 +2,7 @@
 #define CLIENT_LIST_H
 
 #include <sys/socket.h>
+#include <time.h>
 #include "msg_struct.h"
 
 struct Client
@@ -9,6 +10,7 @@ struct Client
 	int fd;
 	struct sockaddr address;
 	socklen_t address_len;
+	time_t connected_at; 
 	struct Client *next;
 	char nickname[NICK_LEN];
 	struct message msgstruct;

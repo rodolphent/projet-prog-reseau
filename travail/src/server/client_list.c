@@ -15,7 +15,8 @@ void client_add(struct Client **head, int fd, struct sockaddr *addr,
 	c->fd = fd;
 	c->address = *addr;
 	c->address_len = len;
-	c->next = *head; 
+	c->connected_at = time(NULL);
+	c->next = *head;
 	c->is_waiting_message = 0;
 	*head = c;
 }

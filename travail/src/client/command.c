@@ -78,6 +78,11 @@ int get_msg_type_and_infos(char *buffer,
 	{
 		msg_type_res = NICKNAME_LIST;
 	}
+	else if (strcmp(msg_type, "/whois") == 0)
+	{
+		msg_type_res = NICKNAME_INFOS;
+		have_info = 1;
+	}
 	else
 	{
 		return -1;

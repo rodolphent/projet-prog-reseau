@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <time.h>
 #include "common.h"
 #include "server_command.h"
 #include <ctype.h>
@@ -118,6 +121,36 @@ int handle_command(struct Client **clients,struct Client *client)
 		send(client->fd, client->msg_content, strlen(client->msg_content), 0) ;
 		
 		printf("Message sent!\n");
+	}
+
+	if(client->msgstruct.type == NICKNAME_INFOS){
+
+
+		char content[MSG_LEN];
+		struct message response;
+		memset(&response, 0, sizeof(response));
+
+		snprintf(content, sizeof(content), "User %s does not exist\n", client->msgstruct.infos);
+		for (struct Client *c = *clients; c != NULL; c = c->next)
+		{
+			if (c->nickname[0] != '\0' && strcmp(c->nickname, client->msgstruct.infos) == 0)
+			{
+				struct sockaddr_in *addr = (struct sockaddr_in *)&c->address;
+				char date[32];
+				strftime(date, sizeof(date), "%Y/%m/%d@%H:%M", localtime(&c->connected_at));
+				snprintf(content, sizeof(content),
+						 "%s connected since %s with IP address %s and port number %d\n",
+						 c->nickname, date, inet_ntoa(addr->sin_addr), ntohs(addr->sin_port));
+				break;
+			}
+		}
+
+		snprintf(response.nick_sender, sizeof(response.nick_sender), "%s", "Server");
+		response.type = NICKNAME_INFOS;
+		response.pld_len = strlen(content);
+
+		send(client->fd, &response, sizeof(response), 0);
+		send(client->fd, content, strlen(content), 0);
 	}
 	return 1;
 }
