@@ -52,6 +52,11 @@ int handle_server_input(int sockfd, char *nickname, char *buffer)
 
 	if (response.type == NICKNAME_NEW)
 	{
+		if (strcmp(nickname, response.infos) != 0){
+			printf("Nickname changed from %s to %s\n", nickname, response.infos);
+		}else {
+			printf("Invalid nickname : %s\n", response.infos);
+		}
 		snprintf(nickname, NICK_LEN, "%s", response.infos);
 	}
 	printf("Received: %s", buffer);

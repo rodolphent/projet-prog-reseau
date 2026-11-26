@@ -60,7 +60,7 @@ static void handle_client_input(int fd, struct Client **clients)
 	printf("Received data: %s\n", msgstruct.nick_sender);
 	printf("Received payload: %s\n", buffer);
 
-	handle_command(client);
+	handle_command(clients,client);
 }
 
 int handle_bind(char *address, char *port)

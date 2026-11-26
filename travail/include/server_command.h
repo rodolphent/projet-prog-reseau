@@ -3,7 +3,8 @@
 
 #include "client_list.h"
 
-/* Traite le message reçu d'un client. Retourne 0 pour /quit, 1 sinon. */
-int handle_command(struct Client *client);
+/* Traite le message reçu de `client`. `clients` sert au /nick.
+ * Retourne 0 pour /quit, 1 sinon. */
+int handle_command(struct Client **clients,struct Client *client);
 
 #endif
