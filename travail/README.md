@@ -1,18 +1,26 @@
 # Répertoire de travail
 
-Ce répertoire ne fournit aucune implémentation. Il contient uniquement les interfaces minimales proposées pour structurer le travail.
-
 ```text
 travail/
 ├── include/
-│   ├── protocol.h       # Contrat de protocole et I/O TCP
-│   ├── client.h         # API du client
-│   ├── server.h         # API du serveur
-│   ├── user_list.h      # Liste des utilisateurs
-│   └── channel_list.h   # Liste des salons, jalon 4 uniquement
+│   ├── common.h             # Constantes et fonctions partagées
+│   ├── msg_struct.h         # Types et en-tête des messages
+│   ├── command.h            # Commandes côté client
+│   ├── client_list.h        # Liste des clients du serveur
+│   └── server_command.h     # Commandes côté serveur
+├── src/
+│   ├── common.c             # Code partagé entre client et serveur
+│   ├── client/
+│   │   ├── client.c         # Connexion, boucle poll, réception
+│   │   └── command.c        # Lecture et envoi des commandes
+│   └── server/
+│       ├── server.c         # Écoute, boucle poll, réception
+│       ├── client_list.c    # Gestion de la liste des clients
+│       └── command.c        # Traitement des commandes
+├── Makefile
 └── README.md
 ```
 
-Les noms de fonctions sont des propositions de découpage, il n'est pas obligatoire de respecter ce découpage. Chaque équipe peut les faire évoluer, à condition de conserver une architecture modulaire, un `main()` court et des responsabilités séparées.
+Compilation avec `make`, les exécutables sont produits dans `bin/`. Nettoyage avec `make clean`.
 
 Les décisions de protocole sont décrites dans [../protocole.md](../protocole.md).

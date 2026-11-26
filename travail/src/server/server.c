@@ -1,98 +1,14 @@
-#include <arpa/inet.h>
-
 #include <netdb.h>
-#include <netinet/in.h>
 #include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <poll.h>
-#include <ctype.h>
-#include "../include/msg_struct.h"
-#include "../include/common.h"
-#include <limits.h>
-
-struct Client
-{
-	int fd;
-	struct sockaddr address;
-	socklen_t address_len;
-	struct Client *next;
-	char nickname[NICK_LEN];
-	struct message msgstruct;
-	char* msg_content; // do malloc when using
-	int is_waiting_message;
-	// add message struct
-	//add payload struct NULL
-	// when i receive a message, i cast it in message struct
-	// when i recevie a message, and message struct is not null i cast it in payload
-	// once payload is not NULL and is treated, clean everything
-};
-
-static void die(int ret_value, const char *msg)
-{
-	if (ret_value < 0)
-	{
-		perror(msg);
-		exit(EXIT_FAILURE);
-	}
-}
-
-
-static void client_add(struct Client **head, int fd, struct sockaddr *addr,
-					   socklen_t len)
-{
-	struct Client *c = calloc(1,sizeof(*c));
-	if (!c)
-	{
-		perror("malloc()");
-		exit(EXIT_FAILURE);
-	}
-	c->fd = fd;
-	c->address = *addr;
-	c->address_len = len;
-	c->next = *head; 
-	c->is_waiting_message = 0;
-	*head = c;
-}
-
-static void client_remove(struct Client **head, int fd)
-{
-	struct Client **cur = head;
-	while (*cur && (*cur)->fd != fd)
-	{
-		cur = &(*cur)->next;
-	}
-	if (*cur)
-	{
-		struct Client *to_free = *cur;
-		*cur = to_free->next; 
-		close(to_free->fd);
-		free(to_free);
-		printf("Client on fd(%d) removed\n", fd);
-	}
-}
-
-static void client_free_all(struct Client **head)
-{
-	while (*head)
-	{
-		client_remove(head, (*head)->fd);
-	}
-}
-
-static int client_count(struct Client *head)
-{
-	int n = 0;
-	for (struct Client *c = head; c != NULL; c = c->next)
-	{
-		n++;
-	}
-	return n;
-}
-
+#include "client_list.h"
+#include "common.h"
+#include "msg_struct.h"
+#include "server_command.h"
 
 static void accept_client(int server_fd, struct Client **clients)
 {
@@ -102,50 +18,6 @@ static void accept_client(int server_fd, struct Client **clients)
 	die(fd, "accept()");
 	printf("New socket on fd(%d)\n", fd);
 	client_add(clients, fd, &addr, len);
-}
-
-int handle_command( struct Client* client)
-{
-
-	//TODO : handle quit 
-	if (client->msgstruct.type == 9999)
-	{
-		printf("quitting\n");
-		return 0;
-	}
-
-	if (client->msgstruct.type == NICKNAME_NEW)
-	{
-		
-		//TODO : check if nick is valid before accepting it
-
-		printf("nickname changed for fd(%d) from %s to %s\n", client->fd, client->nickname,client->msgstruct.infos);
-		snprintf(client->nickname, NICK_LEN, "%s", client->msgstruct.infos);
-		//TODO : also check for non ascii characters
-		struct message response;
-		memset(&response,0,sizeof(response));
-		snprintf(response.nick_sender, sizeof(response.nick_sender), "%s", "Server");
-		response.type = NICKNAME_NEW;
-		char content[MSG_LEN];
-		snprintf(content, sizeof(content), "Welcome to the server %s !\n", client->nickname);
-		response.pld_len = strlen(content);
-		snprintf(response.infos, sizeof(response.infos), "%s", client->nickname);
-		
-		
-		send(client->fd, &response, sizeof(response), 0);
-		send(client->fd, content, strlen(content), 0);
-		
-	}
-
-	if (client->msgstruct.type == ECHO_SEND) {
-		//TODO : echo things
-
-		send(client->fd, &client->msgstruct, sizeof(client->msgstruct), 0);
-		send(client->fd, client->msg_content, strlen(client->msg_content), 0) ;
-		
-		printf("Message sent!\n");
-	}
-	return 1;
 }
 
 static void handle_client_input(int fd, struct Client **clients)

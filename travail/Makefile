@@ -8,13 +8,18 @@ TARGETS = $(BIN_DIR)/client $(BIN_DIR)/server
 
 all: $(TARGETS)
 
-$(BIN_DIR)/client: $(SRC_DIR)/client.c
-	@mkdir -p $(BIN_DIR)
-	$(CC) $(CFLAGS) $< -o $@
+COMMON = $(SRC_DIR)/common.c
+CLIENT_SRC = $(wildcard $(SRC_DIR)/client/*.c)
+SERVER_SRC = $(wildcard $(SRC_DIR)/server/*.c)
+HEADERS = $(wildcard include/*.h)
 
-$(BIN_DIR)/server: $(SRC_DIR)/server.c
+$(BIN_DIR)/client: $(CLIENT_SRC) $(COMMON) $(HEADERS)
 	@mkdir -p $(BIN_DIR)
-	$(CC) $(CFLAGS) $< -o $@
+	$(CC) $(CFLAGS) $(filter %.c,$^) -o $@
+
+$(BIN_DIR)/server: $(SERVER_SRC) $(COMMON) $(HEADERS)
+	@mkdir -p $(BIN_DIR)
+	$(CC) $(CFLAGS) $(filter %.c,$^) -o $@
 
 clean:
 	rm -rf $(BIN_DIR)
