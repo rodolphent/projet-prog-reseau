@@ -5,6 +5,16 @@
 #include <time.h>
 #include "msg_struct.h"
 
+enum file_status
+{
+	FILE_NONE = 0,
+	FILE_REQUESTED = 1,
+	FILE_ACCEPTED = 2,
+	FILE_REJECTED = 3,
+	FILE_SENDING = 4,
+	FILE_RECEIVING = 5
+};
+
 struct Client
 {
 	int fd;
@@ -16,11 +26,10 @@ struct Client
 	struct message msgstruct;
 	char* msg_content; // do malloc when using
 	int is_waiting_message;
-	// add message struct
-	//add payload struct NULL
-	// when i receive a message, i cast it in message struct
-	// when i recevie a message, and message struct is not null i cast it in payload
-	// once payload is not NULL and is treated, clean everything
+
+	enum file_status file_status;
+	int bytes_sent;
+	int bytes_received;
 };
 
 void client_add(struct Client **head, int fd, struct sockaddr *addr,

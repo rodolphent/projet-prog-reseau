@@ -84,6 +84,12 @@ int handle_server_input(int sockfd, char *nickname, char *buffer)
 		return 1;
 	}
 
+	if (response.type == FILE_REQUEST)
+	{
+		printf("%s", buffer);
+		return 1;
+	}
+
 	printf("[Server] : %s", buffer);
 	return 1;
 }

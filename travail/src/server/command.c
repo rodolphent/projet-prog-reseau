@@ -226,12 +226,33 @@ int handle_command(struct Client **clients, struct Client *client)
 	if (client->msgstruct.type == FILE_REQUEST)
 	{
 		struct Client *target_client;
+		char *filename;
+
+		filename = client->msg_content;
 		target_client = find_client_by_nickname(clients, client->msgstruct.infos);
 		if (!target_client)
-		{
 			not_found_response(client);
+		else
+		{
+			char content[MSG_LEN];
+			int len = snprintf(content, sizeof(content),
+							   "%s wants you to accept the transfer of the file named %s. Do you accept? [Y/N]\n",
+							   client->nickname, filename);
+			if (len < 0 || (size_t)len >= sizeof(content))
+			{
+				fprintf(stderr, "Filename is too long\n");
+				return 1;
+			}
+			// Transmettre la demande au recepteur
+			struct message request = client->msgstruct;
+			request.pld_len = len;
+			snprintf(request.nick_sender, sizeof(request.nick_sender), "%s", client->nickname);
+			die(send(target_client->fd, &request, sizeof(request), 0), "send message struct");
+			die(send(target_client->fd, content, len, 0), "send message content");
+			client->file_status = FILE_REQUESTED;
 		}
 	}
+
 
 	return 1;
 }
