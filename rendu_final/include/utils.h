@@ -1,0 +1,47 @@
+#ifndef CLIENT_LIST_H
+#define CLIENT_LIST_H
+
+#include <sys/socket.h>
+#include <time.h>
+#include "msg_struct.h"
+
+enum file_status
+{
+	FILE_NONE = 0,
+	FILE_REQUESTED = 1,
+	FILE_ACCEPTED = 2,
+	FILE_REJECTED = 3,
+	FILE_SENDING = 4,
+	FILE_RECEIVING = 5
+};
+
+struct Client
+{
+	int fd;
+	struct sockaddr address;
+	socklen_t address_len;
+	time_t connected_at; 
+	struct Client *next;
+	char nickname[NICK_LEN];
+	struct message msgstruct;
+	char* msg_content; // do malloc when using
+	int is_waiting_message;
+	char channel[CHANNEL_LEN];
+
+	enum file_status file_status;
+	int bytes_sent;
+	int bytes_received;
+};
+
+void client_add(struct Client **head, int fd, struct sockaddr *addr,
+				socklen_t len);
+void client_remove(struct Client **head, int fd);
+void client_free_all(struct Client **head);
+int client_count(struct Client *head);
+
+int notify_channel(struct Client *head, const char *channel, const char *message, struct Client *sender);
+int leave_channel(struct Client *head, struct Client *client);
+
+int check_channel_name(struct Client **clients, const char *name, char *content, size_t size);
+int channel_exists(struct Client *head, const char *name);
+#endif
