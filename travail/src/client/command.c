@@ -134,6 +134,7 @@ int get_msg_type_and_infos(char *buffer,
 	else if (strcmp(msg_type, "/quit") == 0)
 	{
 		msg_type_res = MULTICAST_QUIT;
+		have_info = 1;
 	}
 	else
 	{
@@ -214,7 +215,7 @@ int handle_stdin_input(int sockfd, char *nickname, char *buffer, struct file_tra
 	parsed_buffer[n] = '\0';
 
 	//Gestion de la réponse à une demande de transfert de fichier
-	if (ft->pending)
+	if (ft->pending && strncmp(parsed_buffer, "/quit", 5) != 0)
 	{
 		handle_file_transfer_response(sockfd, nickname, parsed_buffer, ft);
 		return 1;
@@ -225,6 +226,12 @@ int handle_stdin_input(int sockfd, char *nickname, char *buffer, struct file_tra
 	{
 		fprintf(stderr, "Unknown command\n");
 		return 1;
+	}
+
+	// /quit sans nom de salon : déconnexion du serveur
+	if (msg_type == MULTICAST_QUIT && msg_infos[0] == '\0')
+	{
+		return 0;
 	}
 
 	if (msg_type == FILE_REQUEST && !prepare_file_request(nickname, msg_infos, &msg_content, ft))
