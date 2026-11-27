@@ -16,11 +16,7 @@ struct Client
 	struct message msgstruct;
 	char* msg_content; // do malloc when using
 	int is_waiting_message;
-	// add message struct
-	//add payload struct NULL
-	// when i receive a message, i cast it in message struct
-	// when i recevie a message, and message struct is not null i cast it in payload
-	// once payload is not NULL and is treated, clean everything
+	char channel[CHANNEL_LEN];
 };
 
 void client_add(struct Client **head, int fd, struct sockaddr *addr,
@@ -28,5 +24,10 @@ void client_add(struct Client **head, int fd, struct sockaddr *addr,
 void client_remove(struct Client **head, int fd);
 void client_free_all(struct Client **head);
 int client_count(struct Client *head);
+
+int notify_channel(struct Client *head, const char *channel, const char *message, struct Client *sender);
+int leave_channel(struct Client *head, struct Client *client);
+
+int check_channel_name(struct Client **clients, const char *name, char *content, size_t size);
 
 #endif

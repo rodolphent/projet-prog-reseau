@@ -6,6 +6,7 @@
 #include <time.h>
 #include "common.h"
 #include "server_command.h"
+#include "utils.h"
 #include <ctype.h>
 
 int check_nickname(struct Client **clients, char *nickname, char *content, size_t content_size)
@@ -202,5 +203,57 @@ int handle_command(struct Client **clients,struct Client *client)
 			printf("[INFO] : fd(%d) Message sent to %s : %s\n", client->fd, client->msgstruct.infos, client->msg_content);
 		}
 	}
+
+	if (client->msgstruct.type == MULTICAST_CREATE)
+	{
+		char content[MSG_LEN];
+
+		//calling check_nickname for now but using neither return code nor content 
+		int ok = check_channel_name(clients, client->msgstruct.infos, content, sizeof(content));
+
+		
+		struct message response;
+		memset(&response, 0, sizeof(response));
+		snprintf(response.nick_sender, sizeof(response.nick_sender), "%s", "Server");
+		response.type = MULTICAST_CREATE;
+
+		if (ok != 0)
+		{
+			snprintf(content, sizeof(content), "Invalid channel name : %s\n", client->msgstruct.infos);
+			response.pld_len = strlen(content);
+			printf("[INFO] : fd(%d) Tried to create invalid channel\n", client->fd);
+		} else {
+
+			char old_channel[CHANNEL_LEN];
+			snprintf(old_channel, sizeof(old_channel), "%s", client->channel);
+
+			leave_channel(*clients, client);
+			if (old_channel[0] != '\0') // check if client was in a channel before
+			{
+				printf("[INFO] : fd(%d) leaving channel %s\n", client->fd, old_channel);
+
+				char leave_msg[MSG_LEN];
+				snprintf(leave_msg, sizeof(leave_msg), "%s has left the channel", client->nickname);
+
+				notify_channel(*clients, old_channel, leave_msg, client);
+			} 
+			
+			printf("[INFO] : fd(%d) Creating channel %s\n", client->fd, client->msgstruct.infos);		
+			
+			// join the created channel 
+			snprintf(client->channel, sizeof(client->channel), "%s", client->msgstruct.infos);
+			printf("[INFO] : fd(%d) Joining channel %s\n", client->fd, client->msgstruct.infos);		
+				
+
+			snprintf(content, sizeof(content), "You have created a channel : %s\n", client->msgstruct.infos);
+			response.pld_len = strlen(content);
+
+		}
+
+		send(client->fd, &response, sizeof(response), 0);
+		send(client->fd, content, strlen(content), 0);
+
+	}
+
 	return 1;
 }

@@ -1,8 +1,9 @@
 #ifndef MSG_STRUCT_H
 #define MSG_STRUCT_H
 
-#define NICK_LEN 128
+#define NICK_LEN 32
 #define INFOS_LEN 128
+#define CHANNEL_LEN 32
 
 enum msg_type {
     NICKNAME_NEW,
