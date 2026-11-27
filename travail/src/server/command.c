@@ -356,6 +356,11 @@ int handle_command(struct Client **clients,struct Client *client)
 			snprintf(content, sizeof(content), "You have joined the channel : %s\n", client->channel);
 			response.pld_len = strlen(content);
 
+			//notify other clients in the channel
+			char join_msg[MSG_LEN];
+			snprintf(join_msg, sizeof(join_msg), "%s has joined the channel", client->nickname);
+			notify_channel(*clients, client->channel, join_msg, client);
+
 		}
 
 		send(client->fd, &response, sizeof(response), 0);
@@ -373,14 +378,24 @@ int handle_command(struct Client **clients,struct Client *client)
 		snprintf(response.nick_sender, sizeof(response.nick_sender), "%s", "Server");
 		response.type = MULTICAST_QUIT;
 
-		int people_left = leave_channel(*clients, client);
-		if (people_left == 0)
-		{
-			printf("[INFO] : fd(%d) Leaving channel %s, now deleted\n", client->fd, channel_name);
-			snprintf(content, sizeof(content), "You have left the channel : %s, channel is now empty\n", channel_name);
-		} else {
-			printf("[INFO] : fd(%d) Leaving channel %s\n", client->fd, channel_name);
-			snprintf(content, sizeof(content), "You have left the channel : %s\n", channel_name);
+		
+		if (client->channel[0] == '\0') {
+			snprintf(content, sizeof(content), "You are not in any channel\n");
+			response.pld_len = strlen(content);
+			printf("[INFO] : fd(%d) Tried to leave a channel but was not in any\n", client->fd);
+		}else {
+			int people_left = leave_channel(*clients, client);
+			if (people_left == 0)
+			{
+				printf("[INFO] : fd(%d) Leaving channel %s, now deleted\n", client->fd, channel_name);
+				snprintf(content, sizeof(content), "You have left the channel : %s, channel is now empty\n", channel_name);
+			} else {
+				char quit_msg[MSG_LEN];
+				snprintf(quit_msg, sizeof(quit_msg), "%s has left the channel", client->nickname);
+				notify_channel(*clients, channel_name, quit_msg, client);
+				printf("[INFO] : fd(%d) Leaving channel %s\n", client->fd, channel_name);
+				snprintf(content, sizeof(content), "You have left the channel : %s\n", channel_name);
+			}
 		}
 
 		response.pld_len = strlen(content);

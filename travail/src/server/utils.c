@@ -4,6 +4,7 @@
 #include "utils.h"
 #include <string.h>
 #include <ctype.h>
+#include <common.h>
 
 void client_add(struct Client **head, int fd, struct sockaddr *addr,
 					   socklen_t len)
@@ -34,6 +35,19 @@ void client_remove(struct Client **head, int fd)
 	{
 		struct Client *to_free = *cur;
 		*cur = to_free->next; 
+
+		//notify other users
+		if (to_free->channel[0] != '\0')
+		{
+			char old[CHANNEL_LEN];
+			snprintf(old, sizeof(old), "%s", to_free->channel);
+			leave_channel(*head, to_free);
+			char msg[MSG_LEN];
+			snprintf(msg, sizeof(msg), "%s has quit the channel", to_free->nickname);
+			notify_channel(*head, old, msg, to_free);
+		}
+
+
 		close(to_free->fd);
 		free(to_free);
 		//printf("Client on fd(%d) removed\n", fd);
