@@ -9,7 +9,7 @@
 #include "common.h"
 #include "msg_struct.h"
 
-static int receive_all(int sockfd, void *buffer, size_t length)
+int receive_all(int sockfd, void *buffer, size_t length)
 {
 	size_t received = 0;
 	while (received < length)

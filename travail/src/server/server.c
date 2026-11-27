@@ -20,19 +20,45 @@ static void accept_client(int server_fd, struct Client **clients)
 	client_add(clients, fd, &addr, len);
 }
 
+static int receive_all(int sockfd, void *buffer, size_t length)
+{
+	size_t received = 0;
+	while (received < length)
+	{
+		ssize_t n = recv(sockfd, (char *)buffer + received, length - received, 0);
+		if (n < 0)
+		{
+			perror("receive from client");
+			return 0;
+		}
+		if (n == 0)
+		{
+			printf("Client closed the connection\n");
+			return 0;
+		}
+		received += (size_t)n;
+	}
+	return 1;
+}
+
 static void handle_client_input(int fd, struct Client **clients)
 {
 	char buffer[MSG_LEN];
 	struct message msgstruct;
 
-	buffer[0] = '\0';
 	memset(buffer, 0, sizeof(buffer));
 	memset(&msgstruct, 0, sizeof(struct message));
 
 	//getting metadata
-	if (recv(fd, &msgstruct, sizeof(struct message), 0) <= 0)
+	if (!receive_all(fd, &msgstruct, sizeof(struct message)))
 	{
-		printf("closed \n");
+		client_remove(clients, fd);
+		return;
+	}
+
+	if (msgstruct.pld_len < 0 || msgstruct.pld_len >= MSG_LEN)
+	{
+		fprintf(stderr, "Invalid payload length received from client\n");
 		client_remove(clients, fd);
 		return;
 	}
@@ -55,7 +81,12 @@ static void handle_client_input(int fd, struct Client **clients)
 		client->msg_content = buffer;
 
 	}
-	if (msgstruct.pld_len != 0) die(recv(fd, buffer, msgstruct.pld_len,0), "recv");
+	if (!receive_all(fd, buffer, (size_t)msgstruct.pld_len))
+	{
+		client_remove(clients, fd);
+		return;
+	}
+	buffer[msgstruct.pld_len] = '\0';
 
 	printf("Received data: %s\n", msgstruct.nick_sender);
 	printf("Received payload: %s\n", buffer);

@@ -235,9 +235,7 @@ int handle_command(struct Client **clients, struct Client *client)
 		else
 		{
 			char content[MSG_LEN];
-			int len = snprintf(content, sizeof(content),
-							   "%s wants you to accept the transfer of the file named %s. Do you accept? [Y/N]\n",
-							   client->nickname, filename);
+			int len = snprintf(content, sizeof(content), "%s wants you to accept the transfer of the file named %s. Do you accept? [Y/N]\n", client->nickname, filename);
 			if (len < 0 || (size_t)len >= sizeof(content))
 			{
 				fprintf(stderr, "Filename is too long\n");
