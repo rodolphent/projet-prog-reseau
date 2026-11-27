@@ -21,6 +21,7 @@ void client_add(struct Client **head, int fd, struct sockaddr *addr,
 	c->connected_at = time(NULL);
 	c->next = *head;
 	c->is_waiting_message = 0;
+	c->file_status = FILE_NONE;
 	*head = c;
 }
 
