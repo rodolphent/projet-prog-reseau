@@ -33,7 +33,7 @@ int get_msg_type_and_infos(char *buffer,
 	if (*buffer != '/')
 	{
 		*msg_content = buffer;
-		return ECHO_SEND;
+		return MULTICAST_SEND;
 	}
 
 	char *msg_type = buffer;

@@ -76,9 +76,16 @@ int handle_server_input(int sockfd, char *nickname, char *buffer)
 		return 1; 
 	}
 
-	if (response.type == ECHO_SEND)
+	if (response.type == MULTICAST_SEND)
 	{
-		printf("[Server] : %s\n", buffer);
+		if (response.infos[0] != '\0')
+		{
+			printf("[%s] in %s : %s\n", response.nick_sender, response.infos, buffer);
+		}
+		else
+		{
+			printf("[%s] : %s\n", response.nick_sender, buffer);
+		}
 		return 1;
 	}
 

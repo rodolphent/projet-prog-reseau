@@ -115,14 +115,31 @@ int handle_command(struct Client **clients,struct Client *client)
 		
 	}
 
-	if (client->msgstruct.type == ECHO_SEND) {
+	//workaround ; was echo before and now supports rooms
+	if (client->msgstruct.type == MULTICAST_SEND) {
 		
-		printf("[INFO] : echo from fd(%d) : %s\n", client->fd, client->msg_content);
+		if (client->channel[0] != '\0') {
+			snprintf(client->msgstruct.infos, sizeof(client->msgstruct.infos), "%s", client->channel);
+			//sends the message to all members in the room 
+			for (struct Client *c = *clients; c != NULL; c = c->next)
+			{
+				if (strcmp(c->channel, client->channel) == 0 && c->fd != client->fd)
+				{
+					
+					send(c->fd, &client->msgstruct, sizeof(client->msgstruct), 0);
+					send(c->fd, client->msg_content, strlen(client->msg_content), 0);
+				}
+			}
 
-		send(client->fd, &client->msgstruct, sizeof(client->msgstruct), 0);
-		send(client->fd, client->msg_content, strlen(client->msg_content), 0) ;
+			return 1;
+		} else {
+			//default echo 
+			printf("[INFO] : echo from fd(%d) : %s\n", client->fd, client->msg_content);
+			send(client->fd, &client->msgstruct, sizeof(client->msgstruct), 0);
+			send(client->fd, client->msg_content, strlen(client->msg_content), 0) ;
+	
+		}
 		
-		//printf("Message sent!\n");
 	}
 
 	if(client->msgstruct.type == NICKNAME_INFOS){
@@ -266,7 +283,20 @@ int handle_command(struct Client **clients,struct Client *client)
 		snprintf(content, sizeof(content), "Existing channels :\n");
 		for (struct Client *c = *clients; c != NULL; c = c->next)
 		{
-			if (c->channel[0] != '\0')
+
+			//fix : removes duplicates in the list 
+			int already_listed = 0;
+			for (struct Client *p = *clients; p != c; p = p->next)
+			{
+				if (strcmp(p->channel, c->channel) == 0)   // p est avant c, même salon
+				{
+					already_listed = 1;
+					break;
+				}
+			}
+
+			//add only if no duplicates
+			if (c->channel[0] != '\0' && !already_listed)
 			{
 				strncat(content, c->channel, sizeof(content) - strlen(content) - 1);
 				strncat(content, "\n", sizeof(content) - strlen(content) - 1);
