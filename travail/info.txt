@@ -1,3 +1,6 @@
-Nom : Schneider Obry
-Prénom : Rodolphe Loris
+Nom : Schneider
+Prénom : Rodolphe
+
+Nom : Obry
+Prénom : Loris
 github_login : rodolphent Atasio
