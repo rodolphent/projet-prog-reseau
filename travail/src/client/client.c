@@ -30,7 +30,7 @@ int receive_all(int sockfd, void *buffer, size_t length)
 	return 1;
 }
 
-int handle_server_input(int sockfd, char *nickname, char *buffer)
+int handle_server_input(int sockfd, char *nickname, char *buffer, struct file_transfer *ft)
 {
 	struct message response;
 	if (!receive_all(sockfd, &response, sizeof(response)))
@@ -86,7 +86,18 @@ int handle_server_input(int sockfd, char *nickname, char *buffer)
 
 	if (response.type == FILE_REQUEST)
 	{
-		printf("%s", buffer);
+		if (ft->pending || ft->listen_fd != -1)
+		{
+			send_message(sockfd, nickname, FILE_REJECT, response.nick_sender, "");
+			return 1;
+		}
+		else
+		{
+			printf("%s", buffer);
+			ft->pending = 1;
+			snprintf(ft->sender, NICK_LEN, "%s", response.nick_sender);
+			ft->listen_fd = -1;
+		}
 		return 1;
 	}
 
@@ -94,7 +105,7 @@ int handle_server_input(int sockfd, char *nickname, char *buffer)
 	return 1;
 }
 
-void echo_client(int sockfd, char *nickname)
+void echo_client(int sockfd, char *nickname, struct file_transfer *ft)
 {
 	char buffer[MSG_LEN];
 	struct pollfd fds[2];
@@ -110,7 +121,7 @@ void echo_client(int sockfd, char *nickname)
 
 		if (fds[0].revents & (POLLIN | POLLHUP | POLLERR))
 		{
-			if (!handle_server_input(sockfd, nickname, buffer))
+			if (!handle_server_input(sockfd, nickname, buffer, ft))
 			{
 				break;
 			}
@@ -118,7 +129,7 @@ void echo_client(int sockfd, char *nickname)
 
 		if (fds[1].revents & (POLLIN | POLLHUP | POLLERR))
 		{
-			if (!handle_stdin_input(sockfd, nickname, buffer))
+			if (!handle_stdin_input(sockfd, nickname, buffer, ft))
 			{
 				break;
 			}
@@ -168,6 +179,7 @@ int handle_connect(char *address, char *port)
 int main(int argc, char *argv[])
 {
 	int sfd;
+	struct file_transfer ft = {0, -1, ""};
 	char nickname[NICK_LEN] = "";
 
 	if (argc < 3)
@@ -180,7 +192,7 @@ int main(int argc, char *argv[])
 		sfd = handle_connect(argv[1], argv[2]);
 	}
 
-	echo_client(sfd, nickname);
+	echo_client(sfd, nickname, &ft);
 	close(sfd);
 	return EXIT_SUCCESS;
 }

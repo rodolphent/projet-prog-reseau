@@ -251,6 +251,19 @@ int handle_command(struct Client **clients, struct Client *client)
 		}
 	}
 
+	if (client->msgstruct.type == FILE_ACCEPT || client->msgstruct.type == FILE_REJECT)
+	{
+		struct Client *target = find_client_by_nickname(clients, client->msgstruct.infos);
+		if (!target)
+			not_found_response(client);
+		else
+		{
+			struct message fwd = client->msgstruct;
+			snprintf(fwd.nick_sender, sizeof(fwd.nick_sender), "%s", client->nickname);
+			send(target->fd, &fwd, sizeof(fwd), 0);
+			send(target->fd, client->msg_content, fwd.pld_len, 0);
+		}
+	}
 
 	return 1;
 }
