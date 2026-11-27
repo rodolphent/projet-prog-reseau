@@ -27,6 +27,4 @@ Compilation avec `make`, les exécutables sont produits dans `bin/`. Nettoyage a
 
 ## Transfert de fichiers
 
-Sur la connexion directe, l'émetteur envoie le fichier en plusieurs trames `FILE_SEND` d'au plus `MSG_LEN` octets, puis une trame `FILE_SEND` vide qui marque la fin. Le récepteur répond `FILE_ACK`. Les fichiers reçus sont enregistrés dans `.resa1/inbox/`.
-
-Les décisions de protocole sont décrites dans [../protocole.md](../protocole.md).
+Les fichiers reçus sont enregistrés dans `.resa1/inbox/`.
