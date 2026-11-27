@@ -93,6 +93,10 @@ int get_msg_type_and_infos(char *buffer,
 		msg_type_res = MULTICAST_CREATE;
 		have_info = 1;
 	}
+	else if (strcmp(msg_type, "/channel_list") == 0)
+	{
+		msg_type_res = MULTICAST_LIST;
+	}
 	else
 	{
 		return -1;

@@ -255,5 +255,38 @@ int handle_command(struct Client **clients,struct Client *client)
 
 	}
 
+
+	if (client->msgstruct.type == MULTICAST_LIST)
+	{
+		int found = 0;
+		char content[MSG_LEN];
+		struct message response;
+		memset(&response, 0, sizeof(response));
+
+		snprintf(content, sizeof(content), "Existing channels :\n");
+		for (struct Client *c = *clients; c != NULL; c = c->next)
+		{
+			if (c->channel[0] != '\0')
+			{
+				strncat(content, c->channel, sizeof(content) - strlen(content) - 1);
+				strncat(content, "\n", sizeof(content) - strlen(content) - 1);
+				found = 1;
+			}
+		}
+
+		if (!found)
+		{
+			snprintf(content, sizeof(content) - strlen(content) - 1, "No channels available\n");
+		}
+
+		snprintf(response.nick_sender, sizeof(response.nick_sender), "%s", "Server");
+		response.type = MULTICAST_LIST;
+		response.pld_len = strlen(content);
+
+		send(client->fd, &response, sizeof(response), 0);
+		send(client->fd, content, strlen(content), 0);
+		
+	}
+
 	return 1;
 }
