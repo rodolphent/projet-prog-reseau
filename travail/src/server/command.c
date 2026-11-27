@@ -276,7 +276,7 @@ int handle_command(struct Client **clients, struct Client *client)
 			printf("[INFO] : fd(%d) Creating channel %s\n", client->fd, client->msgstruct.infos);		
 			
 			// join the created channel 
-			snprintf(client->channel, sizeof(client->channel), "%s", client->msgstruct.infos);
+			snprintf(client->channel, sizeof(client->channel), "%.*s", CHANNEL_LEN - 1, client->msgstruct.infos);
 			printf("[INFO] : fd(%d) Joining channel %s\n", client->fd, client->msgstruct.infos);		
 				
 
@@ -368,7 +368,7 @@ int handle_command(struct Client **clients, struct Client *client)
 			
 			printf("[INFO] : fd(%d) Joining channel %s\n", client->fd, client->msgstruct.infos);		
 			
-			snprintf(client->channel, sizeof(client->channel), "%s", client->msgstruct.infos);
+			snprintf(client->channel, sizeof(client->channel), "%.*s", CHANNEL_LEN - 1, client->msgstruct.infos);
 				
 
 			snprintf(content, sizeof(content), "You have joined the channel : %s\n", client->channel);
