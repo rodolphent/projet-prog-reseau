@@ -68,11 +68,11 @@ int handle_command(struct Client **clients,struct Client *client)
 		int nick_status = check_nickname(clients, client->msgstruct.infos, content, sizeof(content));
 		if (nick_status != 0)
 		{
-			printf("invalid nickname for fd(%d) : %s\n", client->fd, client->msgstruct.infos);
+			printf("[ERROR] : fd(%d) Invalid nickname : %s\n", client->fd, client->msgstruct.infos);
 					snprintf(response.infos, sizeof(response.infos), "%s",client->nickname);
 
 		}  else {
-			printf("nickname changed for fd(%d) from %s to %s\n", client->fd, client->nickname,client->msgstruct.infos);
+			printf("[INFO] : fd(%d) Nickname changed from %s to %s\n", client->fd, client->nickname,client->msgstruct.infos);
 			snprintf(client->nickname, NICK_LEN, "%s", client->msgstruct.infos);
 					snprintf(response.infos, sizeof(response.infos), "%s", client->nickname);
 
@@ -94,7 +94,7 @@ int handle_command(struct Client **clients,struct Client *client)
 		char content[MSG_LEN];
 		struct message response;
 		memset(&response,0,sizeof(response));
-
+		printf("[INFO] : fd(%d) Listing clients\n", client->fd);
 		snprintf(content, sizeof(content), "Connected clients :\n");
 		for (struct Client *c = *clients; c != NULL; c = c->next)
 		{
@@ -115,12 +115,13 @@ int handle_command(struct Client **clients,struct Client *client)
 	}
 
 	if (client->msgstruct.type == ECHO_SEND) {
-		//TODO : echo things
+		
+		printf("[INFO] : echo from fd(%d) : %s\n", client->fd, client->msg_content);
 
 		send(client->fd, &client->msgstruct, sizeof(client->msgstruct), 0);
 		send(client->fd, client->msg_content, strlen(client->msg_content), 0) ;
 		
-		printf("Message sent!\n");
+		//printf("Message sent!\n");
 	}
 
 	if(client->msgstruct.type == NICKNAME_INFOS){
@@ -130,6 +131,7 @@ int handle_command(struct Client **clients,struct Client *client)
 		struct message response;
 		memset(&response, 0, sizeof(response));
 
+		printf("[INFO] : fd(%d) Getting infos for %s\n", client->fd, client->msgstruct.infos);
 		snprintf(content, sizeof(content), "User %s does not exist\n", client->msgstruct.infos);
 		for (struct Client *c = *clients; c != NULL; c = c->next)
 		{
@@ -164,11 +166,12 @@ int handle_command(struct Client **clients,struct Client *client)
 			}
 		}
 		
-		printf("Message broadcasted : %s\n", client->msg_content);
+		printf("[INFO] : fd(%d) Message broadcasted : %s\n", client->fd, client->msg_content);
 	}
 
 	if (client->msgstruct.type == UNICAST_SEND)
 	{
+	
 		int found = 0;
 		for (struct Client *c = *clients; c != NULL; c = c->next)
 		{
@@ -194,6 +197,9 @@ int handle_command(struct Client **clients,struct Client *client)
 
 			send(client->fd, &response, sizeof(response), 0);
 			send(client->fd, content, strlen(content), 0);
+			printf("[INFO] : fd(%d) Tried to send message to non-existing user %s\n", client->fd, client->msgstruct.infos);
+		} else {
+			printf("[INFO] : fd(%d) Message sent to %s : %s\n", client->fd, client->msgstruct.infos, client->msg_content);
 		}
 	}
 	return 1;

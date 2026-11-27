@@ -53,9 +53,7 @@ int handle_server_input(int sockfd, char *nickname, char *buffer)
 	if (response.type == NICKNAME_NEW)
 	{
 		if (strcmp(nickname, response.infos) != 0){
-			printf("Nickname changed from %s to %s\n", nickname, response.infos);
-		}else {
-			printf("Invalid nickname : %s\n", response.infos);
+			printf("[INFO] : Nickname changed from %s to %s\n", nickname, response.infos);
 		}
 		snprintf(nickname, NICK_LEN, "%s", response.infos);
 	}
@@ -68,7 +66,7 @@ int handle_server_input(int sockfd, char *nickname, char *buffer)
 
 	if (response.type == BROADCAST_SEND)
 	{
-		printf("[%s] : %s\n", response.nick_sender, buffer);
+		printf("[%s] to all : %s\n", response.nick_sender, buffer);
 		return 1; // :/
 	}
 
@@ -154,7 +152,7 @@ int handle_connect(char *address, char *port)
 	{
 		die(-1, "Could not connect to server\n");
 	}
-	printf("Client connected !\n");
+	printf("[INFO] : Client connected to the server\n");
 	freeaddrinfo(result);
 	return sfd;
 }
@@ -164,6 +162,7 @@ int main(int argc, char *argv[])
 	int sfd;
 	char nickname[NICK_LEN] = "";
 
+	printf("[INFO] : Client is running...\n");
 	if (argc < 3)
 	{
 		printf("Default address and port will be used : %s:%s\n", SERV_ADDR, SERV_PORT);

@@ -167,6 +167,6 @@ int handle_stdin_input(int sockfd, char* nickname, char *buffer)
 	//Send the message content
 	die(send(sockfd, msg_content, strlen(msg_content), 0), "send message content");
 
-	printf("Message sent!\n");
+	//printf("Message sent!\n");
 	return 1;
 }

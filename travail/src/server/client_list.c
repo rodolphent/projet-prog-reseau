@@ -34,7 +34,7 @@ void client_remove(struct Client **head, int fd)
 		*cur = to_free->next; 
 		close(to_free->fd);
 		free(to_free);
-		printf("Client on fd(%d) removed\n", fd);
+		//printf("Client on fd(%d) removed\n", fd);
 	}
 }
 

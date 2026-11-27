@@ -16,7 +16,7 @@ static void accept_client(int server_fd, struct Client **clients)
 	socklen_t len = sizeof(addr);
 	int fd = accept(server_fd, &addr, &len);
 	die(fd, "accept()");
-	printf("New socket on fd(%d)\n", fd);
+	printf("[INFO] : fd(%d) New socket\n", fd);
 	client_add(clients, fd, &addr, len);
 }
 
@@ -32,7 +32,7 @@ static void handle_client_input(int fd, struct Client **clients)
 	//getting metadata
 	if (recv(fd, &msgstruct, sizeof(struct message), 0) <= 0)
 	{
-		printf("closed \n");
+		printf("[INFO] : fd(%d) Client closed connection\n", fd);
 		client_remove(clients, fd);
 		return;
 	}
@@ -45,7 +45,7 @@ static void handle_client_input(int fd, struct Client **clients)
 	}
 	if (client == NULL)
 	{
-		fprintf(stderr, "Client not found for fd(%d)\n", fd);
+		fprintf(stderr, "[ERROR] : fd(%d) Client not found\n", fd);
 		client_remove(clients, fd);
 		return;
 	}
@@ -57,8 +57,8 @@ static void handle_client_input(int fd, struct Client **clients)
 	}
 	if (msgstruct.pld_len != 0) die(recv(fd, buffer, msgstruct.pld_len,0), "recv");
 
-	printf("Received data: %s\n", msgstruct.nick_sender);
-	printf("Received payload: %s\n", buffer);
+	//printf("Received data: %s\n", msgstruct.nick_sender);
+	//printf("Received payload: %s\n", buffer);
 
 	handle_command(clients,client);
 }
@@ -118,10 +118,10 @@ void handle_poll(int server_fd, struct Client **clients)
 			fds[i].revents = 0;
 		}
 
-		printf("will poll\n");
+		//printf("[INFO] : Polling...\n");
 		int nfds = poll(fds, n, -1);
 		die(nfds, "poll()");
-		printf("%d fd active\n", nfds);
+		//printf("%d fd active\n", nfds);
 
 		if (fds[0].revents & POLLIN)
 		{
@@ -149,7 +149,7 @@ int main(int argc, char *argv[])
 
 	if (argc != 3)
 	{
-		printf("Default address and port will be used : %s:%s\n", address, port);
+		printf("[INFO] : Default address and port will be used : %s:%s\n", address, port);
 	}
 	else
 	{
@@ -165,6 +165,8 @@ int main(int argc, char *argv[])
 	}
 
 	struct Client *clients = NULL; 
+
+	printf("[INFO] : Server is running...\n");
 
 	handle_poll(sfd, &clients);
 

@@ -23,7 +23,7 @@ void echo_client(int sockfd) {
 		if (send(sockfd, buff, strlen(buff), 0) <= 0) {
 			break;
 		}
-		printf("Message sent!\n");
+		//printf("Message sent!\n");
 		// Cleaning memory
 		memset(buff, 0, MSG_LEN);
 		// Receiving message
