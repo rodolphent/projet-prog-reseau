@@ -97,6 +97,15 @@ int get_msg_type_and_infos(char *buffer,
 	{
 		msg_type_res = MULTICAST_LIST;
 	}
+	else if (strcmp(msg_type, "/join") == 0)
+	{
+		msg_type_res = MULTICAST_JOIN;
+		have_info = 1;
+	}
+	else if (strcmp(msg_type, "/quit") == 0)
+	{
+		msg_type_res = MULTICAST_QUIT;
+	}
 	else
 	{
 		return -1;

@@ -29,5 +29,5 @@ int notify_channel(struct Client *head, const char *channel, const char *message
 int leave_channel(struct Client *head, struct Client *client);
 
 int check_channel_name(struct Client **clients, const char *name, char *content, size_t size);
-
+int channel_exists(struct Client *head, const char *name);
 #endif

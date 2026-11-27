@@ -288,5 +288,77 @@ int handle_command(struct Client **clients,struct Client *client)
 		
 	}
 
+	if (client->msgstruct.type == MULTICAST_JOIN)
+	{
+		int exists = channel_exists(*clients, client->msgstruct.infos);
+		char content[MSG_LEN];
+		struct message response;
+		memset(&response, 0, sizeof(response));
+
+		snprintf(response.nick_sender, sizeof(response.nick_sender), "%s", "Server");
+		response.type = MULTICAST_JOIN;
+
+		if (!exists)
+		{
+			snprintf(content, sizeof(content), "Channel %s does not exist\n", client->msgstruct.infos);
+			response.pld_len = strlen(content);
+			printf("[INFO] : fd(%d) Tried to join non-existing channel %s\n", client->fd, client->msgstruct.infos);
+		} else {
+			char old_channel[CHANNEL_LEN];
+			snprintf(old_channel, sizeof(old_channel), "%s", client->channel);
+
+			leave_channel(*clients, client);
+			if (old_channel[0] != '\0') // check if client was in a channel before
+			{
+				printf("[INFO] : fd(%d) leaving channel %s\n", client->fd, old_channel);
+
+				char leave_msg[MSG_LEN];
+				snprintf(leave_msg, sizeof(leave_msg), "%s has left the channel", client->nickname);
+
+				notify_channel(*clients, old_channel, leave_msg, client);
+			} 
+			
+			printf("[INFO] : fd(%d) Joining channel %s\n", client->fd, client->msgstruct.infos);		
+			
+			snprintf(client->channel, sizeof(client->channel), "%s", client->msgstruct.infos);
+				
+
+			snprintf(content, sizeof(content), "You have joined the channel : %s\n", client->channel);
+			response.pld_len = strlen(content);
+
+		}
+
+		send(client->fd, &response, sizeof(response), 0);
+		send(client->fd, content, strlen(content), 0);
+
+	}
+
+	if (client->msgstruct.type == MULTICAST_QUIT)
+	{
+		char channel_name[CHANNEL_LEN];
+		snprintf(channel_name, sizeof(channel_name), "%s", client->channel);
+		char content[MSG_LEN];
+		struct message response;
+		memset(&response, 0, sizeof(response));
+		snprintf(response.nick_sender, sizeof(response.nick_sender), "%s", "Server");
+		response.type = MULTICAST_QUIT;
+
+		int people_left = leave_channel(*clients, client);
+		if (people_left == 0)
+		{
+			printf("[INFO] : fd(%d) Leaving channel %s, now deleted\n", client->fd, channel_name);
+			snprintf(content, sizeof(content), "You have left the channel : %s, channel is now empty\n", channel_name);
+		} else {
+			printf("[INFO] : fd(%d) Leaving channel %s\n", client->fd, channel_name);
+			snprintf(content, sizeof(content), "You have left the channel : %s\n", channel_name);
+		}
+
+		response.pld_len = strlen(content);
+
+		send(client->fd, &response, sizeof(response), 0);
+		send(client->fd, content, strlen(content), 0);
+
+	}
+
 	return 1;
 }
