@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include "command.h"
 #include "common.h"
+#include "file_transfer.h"
 #include "msg_struct.h"
 
 void send_message(int sockfd, const char *nickname, enum msg_type type,
@@ -243,6 +244,11 @@ int handle_stdin_input(int sockfd, char *nickname, char *buffer, struct file_tra
 	if (msg_type < 0)
 	{
 		fprintf(stderr, "Unknown command\n");
+		return 1;
+	}
+
+	if (msg_type == FILE_REQUEST && !prepare_file_request(nickname, msg_infos, &msg_content, ft))
+	{
 		return 1;
 	}
 

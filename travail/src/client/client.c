@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include "command.h"
 #include "common.h"
+#include "file_transfer.h"
 #include "msg_struct.h"
 
 int receive_all(int sockfd, void *buffer, size_t length)
@@ -17,12 +18,12 @@ int receive_all(int sockfd, void *buffer, size_t length)
 		ssize_t n = recv(sockfd, (char *)buffer + received, length - received, 0);
 		if (n < 0)
 		{
-			perror("receive from server");
+			perror("receive");
 			return 0;
 		}
 		if (n == 0)
 		{
-			printf("Server closed the connection\n");
+			printf("Connection closed by peer\n");
 			return 0;
 		}
 		received += (size_t)n;
@@ -101,6 +102,18 @@ int handle_server_input(int sockfd, char *nickname, char *buffer, struct file_tr
 		return 1;
 	}
 
+	if (response.type == FILE_ACCEPT)
+	{
+		handle_file_accept(nickname, response.nick_sender, buffer, ft);
+		return 1;
+	}
+
+	if (response.type == FILE_REJECT)
+	{
+		handle_file_reject(response.nick_sender, ft);
+		return 1;
+	}
+
 	printf("[Server] : %s", buffer);
 	return 1;
 }
@@ -108,15 +121,17 @@ int handle_server_input(int sockfd, char *nickname, char *buffer, struct file_tr
 void echo_client(int sockfd, char *nickname, struct file_transfer *ft)
 {
 	char buffer[MSG_LEN];
-	struct pollfd fds[2];
+	struct pollfd fds[3];
 	fds[0].fd = sockfd;
 	fds[0].events = POLLIN;
 	fds[1].fd = STDIN_FILENO;
 	fds[1].events = POLLIN;
+	fds[2].events = POLLIN;
 
 	while (1)
 	{
-		die(poll(fds, 2, -1), "poll");
+		fds[2].fd = ft->listen_fd; // ignoré par poll si -1
+		die(poll(fds, 3, -1), "poll");
 		memset(buffer, 0, sizeof(buffer));
 
 		if (fds[0].revents & (POLLIN | POLLHUP | POLLERR))
@@ -133,6 +148,11 @@ void echo_client(int sockfd, char *nickname, struct file_transfer *ft)
 			{
 				break;
 			}
+		}
+
+		if (ft->listen_fd != -1 && (fds[2].revents & POLLIN))
+		{
+			receive_file(nickname, ft);
 		}
 	}
 }
@@ -179,7 +199,7 @@ int handle_connect(char *address, char *port)
 int main(int argc, char *argv[])
 {
 	int sfd;
-	struct file_transfer ft = {0, -1, ""};
+	struct file_transfer ft = {0, -1, "", "", ""};
 	char nickname[NICK_LEN] = "";
 
 	if (argc < 3)
@@ -193,6 +213,10 @@ int main(int argc, char *argv[])
 	}
 
 	echo_client(sfd, nickname, &ft);
+	if (ft.listen_fd != -1)
+	{
+		close(ft.listen_fd);
+	}
 	close(sfd);
 	return EXIT_SUCCESS;
 }
