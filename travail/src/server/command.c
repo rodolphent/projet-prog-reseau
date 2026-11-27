@@ -22,8 +22,7 @@ int check_nickname(struct Client **clients, char *nickname, char *content, size_
 		client = client->next;
 	}
 
-
-	if (strlen(nickname) < 4 )
+	if (strlen(nickname) < 4)
 	{
 		snprintf(content, content_size, "Invalid username : please provide at least 4 characters\n");
 		return 1;
@@ -43,15 +42,44 @@ int check_nickname(struct Client **clients, char *nickname, char *content, size_
 		}
 	}
 
-	snprintf(content, content_size, "Welcome to the server %s !\n",nickname);
+	snprintf(content, content_size, "Welcome to the server %s !\n", nickname);
 	return 0;
 }
 
+struct Client *find_client_by_nickname(struct Client **clients, const char *nickname)
+{
+	struct Client *client = *clients;
+	while (client != NULL)
+	{
+		if (strcmp(client->nickname, nickname) == 0)
+		{
+			return client;
+		}
+		client = client->next;
+	}
+	return NULL; // Not found
+}
 
-int handle_command(struct Client **clients,struct Client *client)
+void not_found_response(struct Client *client)
+{
+	char content[MSG_LEN];
+	struct message response;
+	memset(&response, 0, sizeof(response));
+
+	snprintf(content, sizeof(content), "User %s does not exist\n", client->msgstruct.infos);
+
+	snprintf(response.nick_sender, sizeof(response.nick_sender), "%s", "Server");
+	response.type = UNICAST_SEND;
+	response.pld_len = strlen(content);
+
+	send(client->fd, &response, sizeof(response), 0);
+	send(client->fd, content, strlen(content), 0);
+}
+
+int handle_command(struct Client **clients, struct Client *client)
 {
 
-	//TODO : handle quit 
+	// TODO : handle quit
 	if (client->msgstruct.type == 9999)
 	{
 		printf("quitting\n");
@@ -62,38 +90,35 @@ int handle_command(struct Client **clients,struct Client *client)
 	{
 		char content[MSG_LEN];
 		struct message response;
-		memset(&response,0,sizeof(response));
+		memset(&response, 0, sizeof(response));
 
-		//check nickname validity
+		// check nickname validity
 		int nick_status = check_nickname(clients, client->msgstruct.infos, content, sizeof(content));
 		if (nick_status != 0)
 		{
 			printf("invalid nickname for fd(%d) : %s\n", client->fd, client->msgstruct.infos);
-					snprintf(response.infos, sizeof(response.infos), "%s",client->nickname);
-
-		}  else {
-			printf("nickname changed for fd(%d) from %s to %s\n", client->fd, client->nickname,client->msgstruct.infos);
-			snprintf(client->nickname, NICK_LEN, "%s", client->msgstruct.infos);
-					snprintf(response.infos, sizeof(response.infos), "%s", client->nickname);
-
+			snprintf(response.infos, sizeof(response.infos), "%s", client->nickname);
 		}
-		
-		
+		else
+		{
+			printf("nickname changed for fd(%d) from %s to %s\n", client->fd, client->nickname, client->msgstruct.infos);
+			snprintf(client->nickname, NICK_LEN, "%s", client->msgstruct.infos);
+			snprintf(response.infos, sizeof(response.infos), "%s", client->nickname);
+		}
+
 		snprintf(response.nick_sender, sizeof(response.nick_sender), "%s", "Server");
 		response.type = NICKNAME_NEW;
 		response.pld_len = strlen(content);
-		
-		
+
 		send(client->fd, &response, sizeof(response), 0);
 		send(client->fd, content, strlen(content), 0);
-		
 	}
 
 	if (client->msgstruct.type == NICKNAME_LIST)
 	{
 		char content[MSG_LEN];
 		struct message response;
-		memset(&response,0,sizeof(response));
+		memset(&response, 0, sizeof(response));
 
 		snprintf(content, sizeof(content), "Connected clients :\n");
 		for (struct Client *c = *clients; c != NULL; c = c->next)
@@ -111,20 +136,20 @@ int handle_command(struct Client **clients,struct Client *client)
 
 		send(client->fd, &response, sizeof(response), 0);
 		send(client->fd, content, strlen(content), 0);
-		
 	}
 
-	if (client->msgstruct.type == ECHO_SEND) {
-		//TODO : echo things
+	if (client->msgstruct.type == ECHO_SEND)
+	{
+		// TODO : echo things
 
 		send(client->fd, &client->msgstruct, sizeof(client->msgstruct), 0);
-		send(client->fd, client->msg_content, strlen(client->msg_content), 0) ;
-		
+		send(client->fd, client->msg_content, strlen(client->msg_content), 0);
+
 		printf("Message sent!\n");
 	}
 
-	if(client->msgstruct.type == NICKNAME_INFOS){
-
+	if (client->msgstruct.type == NICKNAME_INFOS)
+	{
 
 		char content[MSG_LEN];
 		struct message response;
@@ -153,17 +178,18 @@ int handle_command(struct Client **clients,struct Client *client)
 		send(client->fd, content, strlen(content), 0);
 	}
 
-	if(client->msgstruct.type == BROADCAST_SEND){
-		
+	if (client->msgstruct.type == BROADCAST_SEND)
+	{
+
 		for (struct Client *c = *clients; c != NULL; c = c->next)
 		{
 			if (c->fd != client->fd)
 			{
 				send(c->fd, &client->msgstruct, sizeof(client->msgstruct), 0);
-				send(c->fd, client->msg_content, strlen(client->msg_content), 0) ;
+				send(c->fd, client->msg_content, strlen(client->msg_content), 0);
 			}
 		}
-		
+
 		printf("Message broadcasted : %s\n", client->msg_content);
 	}
 
@@ -175,7 +201,7 @@ int handle_command(struct Client **clients,struct Client *client)
 			if (c->nickname[0] != '\0' && strcmp(c->nickname, client->msgstruct.infos) == 0)
 			{
 				send(c->fd, &client->msgstruct, sizeof(client->msgstruct), 0);
-				send(c->fd, client->msg_content, strlen(client->msg_content), 0) ;
+				send(c->fd, client->msg_content, strlen(client->msg_content), 0);
 				found = 1;
 				break;
 			}
@@ -196,5 +222,16 @@ int handle_command(struct Client **clients,struct Client *client)
 			send(client->fd, content, strlen(content), 0);
 		}
 	}
+
+	if (client->msgstruct.type == FILE_REQUEST)
+	{
+		struct Client *target_client;
+		target_client = find_client_by_nickname(clients, client->msgstruct.infos);
+		if (!target_client)
+		{
+			not_found_response(client);
+		}
+	}
+
 	return 1;
 }

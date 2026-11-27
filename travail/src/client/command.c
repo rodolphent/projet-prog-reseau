@@ -87,6 +87,31 @@ int get_msg_type_and_infos(char *buffer,
 	}else if (strcmp(msg_type, "/msgall")==0){
 		msg_type_res = BROADCAST_SEND;
 	}
+	else if (strcmp(msg_type, "/send") == 0)
+	{
+		msg_type_res = FILE_REQUEST;
+		have_info = 1;
+	}
+	else if (strcmp(msg_type, "/accept") == 0)
+	{
+		msg_type_res = FILE_ACCEPT;
+		have_info = 1;
+	}
+	else if (strcmp(msg_type, "/reject") == 0)
+	{
+		msg_type_res = FILE_REJECT;
+		have_info = 1;
+	}
+	else if (strcmp(msg_type, "/file") == 0)
+	{
+		msg_type_res = FILE_SEND;
+		have_info = 1;
+	}
+	else if (strcmp(msg_type, "/ack") == 0)
+	{
+		msg_type_res = FILE_ACK;
+		have_info = 1;
+	} 
 	else
 	{
 		return -1;
